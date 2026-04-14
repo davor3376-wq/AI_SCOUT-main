@@ -1,3 +1,11 @@
+[project]
+name = "ai-scout"
+version = "1.0.0"
+requires-python = ">=3.10"
+
+[project.scripts]
+app = "app.api.main:app"
+
 [tool.pytest.ini_options]
 asyncio_mode        = "auto"
 testpaths           = ["tests"]
