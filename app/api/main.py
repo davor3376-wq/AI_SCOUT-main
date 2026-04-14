@@ -262,9 +262,10 @@ async def health():
             conn.execute("SELECT 1")
     except Exception:
         db_status = "error"
-    http_status = 200 if db_status == "ok" else 503
+    # Always return 200 — Railway/load-balancers use this to check liveness,
+    # not DB readiness. DB failures are visible in the body for alerting.
     return JSONResponse(
-        status_code=http_status,
+        status_code=200,
         content={
             "status": "ok" if db_status == "ok" else "degraded",
             "db": db_status,
