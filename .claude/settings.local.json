@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /c/Users/davor/Downloads/AI_SCOUT-main/requirements/*.txt)",
+      "Bash(pip install:*)",
+      "Bash(pip download:*)",
+      "Read(//tmp/**)",
+      "Bash(pip uninstall:*)",
+      "Bash(python -c \"import simplekml; print\\('ok'\\)\")",
+      "Bash(python -c \"import slowapi, mercantile, qrcode; print\\('all ok'\\)\")",
+      "Bash(python -c \"from jose import jwt; from passlib.context import CryptContext; print\\('auth deps ok'\\)\")",
+      "Bash(python -c \"from app.api.main import app\")",
+      "Bash(python -c \"from app.api.main import app; print\\('OK'\\)\")",
+      "Bash(python -c ':*)",
+      "Bash(python -c \"from app.api.main import app; print\\('main.py OK — routes:', [r.path for r in app.routes if hasattr\\(r, 'path'\\)]\\)\")",
+      "Bash(python -c \"import inspect, sentinelhub; print\\(inspect.signature\\(sentinelhub.SentinelHubCatalog.search\\)\\)\")",
+      "Bash(python3 -c \"import inspect, sentinelhub; print\\(inspect.signature\\(sentinelhub.SentinelHubCatalog.search\\)\\)\")",
+      "Bash(python -c \"import sentinelhub; print\\(sentinelhub.__version__\\); import inspect; from sentinelhub import SentinelHubRequest; print\\(inspect.signature\\(SentinelHubRequest.input_data\\)\\)\")",
+      "Bash(python -c \"from sentinelhub import bbox_to_dimensions; help\\(bbox_to_dimensions\\)\")",
+      "Bash(python app/reporting/pdf_gen.py)",
+      "Bash(start \"\" \"c:/Users/davor/Downloads/AI_SCOUT-main/results/report_redesigned.pdf\")",
+      "Bash(python -m py_compile app/reporting/pdf_gen.py)",
+      "Bash(python -m py_compile app/analytics/processor.py app/reporting/pdf_gen.py app/core/mission_executor.py)",
+      "Bash(python -m py_compile app/api/main.py app/api/job_manager.py)",
+      "Bash(xargs grep:*)",
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(venv/Scripts/python.exe -m pip install stripe)",
+      "Bash(C:/Users/davor/AppData/Local/Programs/Python/Python311/python.exe -m pip install stripe)",
+      "Bash(venv/Scripts/python.exe -c \"from app.api.billing_router import router\")",
+      "Bash(python3 -c ':*)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(r'app\\\\reporting\\\\pdf_gen.py', doraise=True\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -m pytest tests/ --tb=no -q)",
+      "Bash(python -m pytest tests/ --ignore=tests/test_features.py --tb=short -q)",
+      "Bash(python -m pytest tests/test_features.py --tb=short -q)",
+      "Bash(python -m pytest tests/test_api_logic.py tests/test_pipeline_integration.py tests/test_tile_endpoint_fixes.py tests/test_watchdog.py --tb=short -q)",
+      "Bash(python -m pytest tests/test_api_logic.py tests/test_pipeline_integration.py tests/test_watchdog.py --tb=long -q)",
+      "Bash(python -m pytest tests/test_watchdog.py --tb=short -q)",
+      "Bash(ls -la *.md)"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+[tool.pytest.ini_options]
+asyncio_mode        = "auto"
+testpaths           = ["tests"]
+python_files        = ["test_*.py"]
+python_classes      = ["Test*"]
+python_functions    = ["test_*"]
+filterwarnings      = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.ruff]
+line-length    = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "F401",   # imported but unused — some __init__ re-exports are intentional
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.coverage.run]
+source   = ["app"]
+omit     = ["app/platform/*", "venv/*", ".venv/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under   = 60

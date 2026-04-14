@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI SCOUT — Command Center</title>
+    <link rel="stylesheet" href="/vendor/leaflet.css" />
+    <link rel="stylesheet" href="/vendor/leaflet.draw.css" />
+    <style>
+        :root {
+            --bg:      #0b0f1a;
+            --panel:   #131b2e;
+            --card:    #1a2540;
+            --border:  #2e4270;
+            --accent:  #38bdf8;
+            --green:   #4ade80;
+            --red:     #f87171;
+            --yellow:  #fbbf24;
+            --blue:    #60a5fa;
+            --white:   #ffffff;
+            --text:    #f0f4ff;
+            --sub:     #c8d6f0;
+            --dim:     #8ba0c0;
+            --mono:    'Consolas', 'Courier New', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            display: flex; height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg); color: var(--text);
+            font-size: 15px; line-height: 1.5;
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ─── Suppress mouse-click focus rings ─────── */
+        button, a, [tabindex],
+        .sensor-btn, .sched-opt, .fbtn, .hi,
+        .copy-id, .tut-btn-back, .tut-btn-next,
+        .tut-dot, .leaflet-bar a, .leaflet-draw-toolbar a {
+            outline: none;
+        }
+        /* Restore outline for keyboard-only navigation */
+        button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* ─── Auth overlay ─────────────────────────── */
+        #auth-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.88); z-index: 9999;
+            align-items: center; justify-content: center; backdrop-filter: blur(6px);
+        }
+        #auth-overlay.visible { display: flex; }
+        #auth-box {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 16px; width: 420px; padding: 48px 40px 40px;
+            box-shadow: 0 0 80px rgba(56,189,248,0.1), 0 32px 64px rgba(0,0,0,0.7);
+        }
+        .auth-logo { text-align: center; margin-bottom: 40px; }
+        .auth-logo-title {
+            font-family: var(--mono); font-size: 32px; font-weight: 900;
+            letter-spacing: 8px; color: var(--accent);
+            text-shadow: 0 0 40px rgba(56,189,248,0.5);
+        }
+        .auth-logo-sub {
+            font-size: 12px; letter-spacing: 3px; color: var(--dim);
+            text-transform: uppercase; margin-top: 10px;
+        }
+        #auth-tabs {
+            display: flex; border: 1px solid var(--border);
+            border-radius: 10px; overflow: hidden; margin-bottom: 28px;
+        }
+        #auth-tabs button {
+            flex: 1; padding: 13px; background: transparent; border: none;
+            color: var(--dim); font-size: 14px; letter-spacing: 2px;
+            cursor: pointer; transition: all 0.2s; font-family: inherit;
+        }
+        #auth-tabs button.active { background: var(--accent); color: #000; font-weight: 800; }
+        #auth-box input {
+            width: 100%; padding: 14px 16px; margin-bottom: 14px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 10px; color: var(--white); font-size: 15px;
+            outline: none; transition: border-color 0.2s;
+        }
+        #auth-box input:focus { border-color: var(--accent); }
+        #auth-box input::placeholder { color: var(--dim); }
+        .btn-auth {
+            width: 100%; padding: 14px; background: var(--accent); color: #000;
+            border: none; border-radius: 10px; font-size: 15px; font-weight: 800;
+            letter-spacing: 3px; cursor: pointer; font-family: var(--mono);
+            transition: opacity 0.2s, box-shadow 0.2s; margin-top: 6px;
+        }
+        .btn-auth:hover { opacity: 0.9; box-shadow: 0 0 28px rgba(56,189,248,0.35); }
+        #auth-error {
+            color: var(--red); font-size: 14px; min-height: 20px;
+            margin-top: 14px; text-align: center;
+        }
+
+        /* ─── Tutorial overlay ─────────────────────── */
+        #tutorial-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.88); z-index: 9998;
+            align-items: center; justify-content: center; backdrop-filter: blur(6px);
+        }
+        #tutorial-overlay.visible { display: flex; }
+        #tutorial-box {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 16px; width: 560px; max-width: 95vw;
+            padding: 40px 44px 36px;
+            box-shadow: 0 0 80px rgba(56,189,248,0.12), 0 32px 64px rgba(0,0,0,0.7);
+        }
+        .tut-header-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 32px;
+        }
+        .tut-logo-title {
+            font-family: var(--mono); font-size: 18px; font-weight: 900;
+            letter-spacing: 6px; color: var(--accent);
+        }
+        .tut-badge {
+            font-size: 11px; letter-spacing: 2px; color: var(--dim);
+            border: 1px solid var(--border); border-radius: 6px;
+            padding: 3px 10px; font-family: var(--mono);
+        }
+        .tut-step { display: none; }
+        .tut-step.tut-active { display: block; }
+        .tut-step-num {
+            font-size: 11px; letter-spacing: 3px; color: var(--accent);
+            font-family: var(--mono); margin-bottom: 10px; text-transform: uppercase;
+        }
+        .tut-step-title {
+            font-size: 22px; font-weight: 800; color: var(--text);
+            letter-spacing: 1px; margin-bottom: 16px; line-height: 1.25;
+        }
+        .tut-step-body {
+            font-size: 14px; color: var(--sub); line-height: 1.75;
+        }
+        .tut-step-body strong { color: var(--accent); font-weight: 700; }
+        .tut-step-body code {
+            font-family: var(--mono); background: var(--card);
+            border: 1px solid var(--border); border-radius: 5px;
+            padding: 1px 7px; font-size: 13px; color: var(--green);
+        }
+        .tut-visual {
+            display: flex; align-items: center; justify-content: center;
+            height: 80px; margin: 24px 0 20px;
+        }
+        .tut-icon-ring {
+            width: 72px; height: 72px; border-radius: 50%;
+            border: 2px solid var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; color: var(--accent);
+            box-shadow: 0 0 24px rgba(56,189,248,0.2);
+            background: rgba(56,189,248,0.06);
+            font-family: var(--mono); font-weight: 900;
+        }
+        .tut-step-list {
+            margin: 12px 0 0 0; padding: 0; list-style: none;
+        }
+        .tut-step-list li {
+            display: flex; align-items: flex-start; gap: 12px;
+            font-size: 14px; color: var(--sub); margin-bottom: 10px; line-height: 1.6;
+        }
+        .tut-step-list li .tut-bullet {
+            flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+            background: rgba(56,189,248,0.12); border: 1px solid var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 800; color: var(--accent);
+            font-family: var(--mono); margin-top: 2px;
+        }
+        .tut-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 36px; padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+        #tut-skip {
+            background: none; border: none; color: var(--dim);
+            font-size: 13px; letter-spacing: 2px; cursor: pointer;
+            padding: 0; font-family: inherit; transition: color 0.2s;
+        }
+        #tut-skip:hover { color: var(--text); }
+        .tut-dots {
+            display: flex; gap: 8px; align-items: center;
+        }
+        .tut-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--border); transition: all 0.2s; cursor: pointer;
+        }
+        .tut-dot.tut-dot-active {
+            background: var(--accent);
+            box-shadow: 0 0 8px rgba(56,189,248,0.5);
+            width: 22px; border-radius: 4px;
+        }
+        .tut-nav {
+            display: flex; gap: 10px;
+        }
+        .tut-btn-back {
+            padding: 10px 18px; background: transparent;
+            border: 1px solid var(--border); border-radius: 8px;
+            color: var(--dim); font-size: 13px; letter-spacing: 2px;
+            cursor: pointer; font-family: inherit; transition: all 0.2s;
+        }
+        .tut-btn-back:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+        .tut-btn-back:disabled { opacity: 0.3; cursor: not-allowed; }
+        .tut-btn-next {
+            padding: 10px 22px; background: var(--accent); color: #000;
+            border: none; border-radius: 8px;
+            font-size: 13px; font-weight: 800; letter-spacing: 2px;
+            cursor: pointer; font-family: var(--mono); transition: opacity 0.2s, box-shadow 0.2s;
+        }
+        .tut-btn-next:hover { opacity: 0.9; box-shadow: 0 0 20px rgba(56,189,248,0.35); }
+
+        /* ─── Sidebar ──────────────────────────────── */
+        #sidebar {
+            width: 400px; min-width: 400px;
+            background: var(--panel); border-right: 2px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden; z-index: 1000;
+        }
+
+        /* Header */
+        #hdr {
+            padding: 18px 20px 16px;
+            border-bottom: 2px solid var(--border);
+            background: #0c1220; flex-shrink: 0;
+        }
+        .hdr-top {
+            display: flex; align-items: center;
+            justify-content: space-between; margin-bottom: 14px;
+        }
+        .brand { display: flex; align-items: center; gap: 14px; }
+        .brand-icon {
+            width: 40px; height: 40px; background: var(--accent);
+            border-radius: 10px; display: flex; align-items: center;
+            justify-content: center; font-size: 20px; color: #000; font-weight: 900;
+            box-shadow: 0 0 20px rgba(56,189,248,0.4); flex-shrink: 0;
+        }
+        .brand-name {
+            font-family: var(--mono); font-size: 18px; font-weight: 800;
+            letter-spacing: 4px; color: var(--accent);
+        }
+        .brand-sub { font-size: 11px; letter-spacing: 2px; color: var(--dim); margin-top: 3px; text-transform: uppercase; }
+        #utc-clock { text-align: right; font-family: var(--mono); line-height: 1.8; }
+        #clock-date { font-size: 12px; color: var(--sub); }
+        #clock-time { font-size: 14px; color: var(--accent); font-weight: 700; }
+        .hdr-user {
+            display: flex; align-items: center; justify-content: space-between;
+            padding-top: 12px; border-top: 1px solid var(--border);
+        }
+        #user-label { font-family: var(--mono); font-size: 13px; color: var(--sub); }
+        #logout-btn {
+            font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
+            color: var(--dim); background: none; border: 1px solid var(--border);
+            border-radius: 6px; padding: 5px 12px; cursor: pointer; transition: all 0.2s;
+        }
+        #logout-btn:hover { color: var(--red); border-color: var(--red); }
+
+        /* Scrollable body */
+        #body {
+            flex: 1; overflow-y: auto; padding: 16px;
+            /* bottom padding so last block never presses against viewport edge */
+            padding-bottom: 24px;
+            display: flex; flex-direction: column; gap: 14px;
+        }
+
+        /* ─── Block ────────────────────────────────── */
+        .block {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px;
+            /* overflow:hidden removed — was clipping block-title text with letter-spacing */
+        }
+        /* Re-apply rounded corners to direct children so border-radius still renders */
+        .block-title:first-child { border-radius: 12px 12px 0 0; }
+        .block-body:last-child   { border-radius: 0 0 12px 12px; }
+        .block-title {
+            font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+            text-transform: uppercase; color: var(--dim);
+            padding: 12px 18px; border-bottom: 1px solid var(--border);
+            background: #111929; display: flex; align-items: center; justify-content: space-between;
+            /* prevent title text from being clipped */
+            white-space: nowrap; overflow: hidden;
+        }
+        .block-title-text {
+            overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+        }
+        .block-body { padding: 18px; }
+
+        /* ─── Fields ───────────────────────────────── */
+        .field { margin-bottom: 16px; }
+        .field:last-child { margin-bottom: 0; }
+        .field-label {
+            font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+            text-transform: uppercase; color: var(--dim); margin-bottom: 8px;
+        }
+        .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        input[type="date"] {
+            width: 100%; padding: 10px 12px;
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--white); font-size: 14px;
+            outline: none; cursor: pointer; transition: border-color 0.2s;
+        }
+        input[type="date"]:focus { border-color: var(--accent); }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+
+        /* ─── Sensor grid ──────────────────────────── */
+        .sensor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .sensor-btn {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 8px; padding: 11px 4px 10px;
+            cursor: pointer; text-align: center; transition: all 0.15s;
+        }
+        .sensor-btn:hover { border-color: var(--accent); background: rgba(56,189,248,0.08); }
+        .sensor-btn.active {
+            border-color: var(--accent); background: rgba(56,189,248,0.15);
+            box-shadow: 0 0 12px rgba(56,189,248,0.2);
+        }
+        .sensor-code {
+            font-family: var(--mono); font-size: 13px; font-weight: 700;
+            display: block; color: var(--dim);
+        }
+        .sensor-btn.active .sensor-code { color: var(--accent); }
+        .sensor-name { font-size: 11px; color: var(--dim); display: block; margin-top: 3px; }
+        .sensor-btn.active .sensor-name { color: var(--sub); }
+        .sensor-btn:hover .sensor-code { color: var(--accent); }
+
+        /* ─── Schedule ─────────────────────────────── */
+        .sched-row {
+            display: flex; border: 1px solid var(--border);
+            border-radius: 8px; overflow: hidden;
+        }
+        .sched-opt {
+            flex: 1; padding: 11px 8px; text-align: center; cursor: pointer;
+            font-size: 13px; font-weight: 600; letter-spacing: 2px;
+            color: var(--dim); background: var(--panel);
+            transition: all 0.2s; font-family: var(--mono);
+        }
+        .sched-opt + .sched-opt { border-left: 1px solid var(--border); }
+        .sched-opt.active { background: rgba(56,189,248,0.15); color: var(--accent); font-weight: 800; }
+
+        /* ─── AOI ──────────────────────────────────── */
+        #aoi-box {
+            display: flex; align-items: flex-start; gap: 11px;
+            padding: 12px 14px; background: var(--panel);
+            border: 1px solid var(--border); border-radius: 8px; transition: border-color 0.3s;
+        }
+        #aoi-box.alert { border-color: var(--red); animation: shake 0.3s; }
+        @keyframes shake {
+            0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}
+        }
+        #aoi-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--border); flex-shrink: 0; margin-top: 5px; transition: all 0.2s;
+        }
+        #aoi-dot.set { background: var(--green); box-shadow: 0 0 10px var(--green); }
+        #aoi-text { font-family: var(--mono); font-size: 12px; color: var(--sub); line-height: 1.7; }
+
+        /* ─── Launch button ────────────────────────── */
+        #launch-btn {
+            width: 100%; padding: 16px;
+            background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%);
+            color: #fff; border: none; border-radius: 12px;
+            font-size: 16px; font-weight: 800; letter-spacing: 4px;
+            text-transform: uppercase; cursor: pointer;
+            font-family: var(--mono); transition: all 0.2s;
+        }
+        #launch-btn:hover:not(:disabled) {
+            transform: translateY(-2px); box-shadow: 0 10px 32px rgba(14,165,233,0.45);
+        }
+        #launch-btn:active:not(:disabled) { transform: translateY(0); }
+        #launch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ─── Status ───────────────────────────────── */
+        .status-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .sdot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+        .sdot-ready     { background: var(--dim); }
+        .sdot-pending   { background: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
+        .sdot-running   { background: var(--blue); animation: blink 1.3s infinite; }
+        .sdot-completed { background: var(--green); box-shadow: 0 0 12px var(--green); }
+        .sdot-failed    { background: var(--red);   box-shadow: 0 0 10px var(--red); }
+        .sdot-loading   { background: var(--accent); animation: blink 0.7s infinite; }
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+        #status-label {
+            font-family: var(--mono); font-size: 17px;
+            font-weight: 800; letter-spacing: 3px; color: var(--white);
+        }
+
+        .job-card {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 9px; padding: 14px 16px; margin-bottom: 14px;
+        }
+        .job-card-id {
+            font-family: var(--mono); font-size: 14px; color: var(--accent);
+            margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .copy-id {
+            font-size: 11px; letter-spacing: 1px; color: var(--dim);
+            background: none; border: 1px solid var(--border);
+            border-radius: 5px; padding: 3px 9px; cursor: pointer;
+            font-family: var(--mono); transition: all 0.2s;
+        }
+        .copy-id:hover { color: var(--accent); border-color: var(--accent); }
+        .job-card-meta { font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+        .job-tag {
+            display: inline-block; padding: 3px 9px;
+            background: rgba(251,191,36,0.1); border: 1px solid var(--yellow);
+            border-radius: 5px; font-size: 11px; font-family: var(--mono);
+            color: var(--yellow); letter-spacing: 1px;
+        }
+
+        #error-banner {
+            display: none; background: rgba(248,113,113,0.1);
+            border: 1px solid var(--red); border-radius: 9px;
+            padding: 12px 14px; font-size: 13px; color: var(--red);
+            word-break: break-word; margin-bottom: 14px; font-family: var(--mono);
+        }
+
+        /* ─── PDF button — always visible ──────────── */
+        #pdf-btn {
+            width: 100%; padding: 13px;
+            background: rgba(74,222,128,0.08);
+            border: 2px solid var(--green);
+            border-radius: 9px; color: var(--green);
+            font-size: 14px; font-weight: 800; letter-spacing: 2px;
+            cursor: pointer; font-family: var(--mono); transition: all 0.2s;
+        }
+        #pdf-btn:hover:not(:disabled) {
+            background: rgba(74,222,128,0.18);
+            box-shadow: 0 0 20px rgba(74,222,128,0.25);
+        }
+        #pdf-btn:disabled {
+            opacity: 0.3; cursor: not-allowed; border-style: dashed;
+        }
+
+        /* ─── Layer toggle ─────────────────────────── */
+        .layer-row { display: flex; align-items: center; justify-content: space-between; }
+        .layer-label { font-size: 14px; color: var(--sub); font-weight: 500; }
+        .toggle { position: relative; width: 44px; height: 24px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .tog-slider {
+            position: absolute; cursor: pointer; inset: 0;
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 24px; transition: 0.2s;
+        }
+        .tog-slider::before {
+            content: ''; position: absolute;
+            width: 18px; height: 18px; left: 2px; bottom: 2px;
+            background: var(--dim); border-radius: 50%; transition: 0.2s;
+        }
+        .toggle input:checked + .tog-slider { background: rgba(56,189,248,0.18); border-color: var(--accent); }
+        .toggle input:checked + .tog-slider::before { transform: translateX(20px); background: var(--accent); }
+
+        /* ─── History ──────────────────────────────── */
+        .filter-row { display: flex; gap: 7px; margin-bottom: 14px; }
+        .fbtn {
+            flex: 1; padding: 9px 4px;
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 7px; color: var(--sub);
+            font-size: 13px; font-weight: 600; letter-spacing: 1px;
+            cursor: pointer; text-align: center; transition: all 0.15s; font-family: var(--mono);
+        }
+        .fbtn:hover { border-color: var(--accent); color: var(--accent); }
+        .fbtn.active {
+            border-color: var(--accent); color: var(--accent);
+            background: rgba(56,189,248,0.12); font-weight: 800;
+        }
+
+        #history-count {
+            font-family: var(--mono); font-size: 12px; color: var(--accent);
+            background: rgba(56,189,248,0.12); border: 1px solid var(--accent);
+            border-radius: 5px; padding: 2px 9px; font-weight: 700;
+        }
+
+        #history-list {
+            list-style: none; display: flex; flex-direction: column; gap: 8px;
+            /* bounded scroll area so cards don't run off-screen */
+            max-height: 420px; overflow-y: auto;
+            /* small inset so card borders don't touch the scrollbar */
+            padding-right: 4px;
+        }
+
+        .hi {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 9px; padding: 13px 15px; cursor: pointer; transition: all 0.15s;
+        }
+        .hi:hover { border-color: var(--accent); }
+        .hi.active { border-color: var(--accent); background: rgba(56,189,248,0.08); }
+        .hi-top {
+            display: flex; align-items: center;
+            justify-content: space-between; margin-bottom: 7px;
+        }
+        .hi-id { font-family: var(--mono); font-size: 13px; color: var(--dim); font-weight: 600; }
+        .hi.active .hi-id { color: var(--accent); }
+        .hi-meta { font-size: 12px; color: var(--dim); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .hi-sensor { font-family: var(--mono); color: var(--sub); font-weight: 600; }
+        .hi-tag { color: var(--yellow); font-size: 11px; font-family: var(--mono); }
+        .hi-delete {
+            opacity: 0; transition: opacity 0.15s;
+            background: none; border: none; cursor: pointer;
+            color: var(--dim); font-size: 16px; line-height: 1;
+            padding: 2px 4px; border-radius: 4px; flex-shrink: 0;
+        }
+        .hi:hover .hi-delete { opacity: 1; }
+        .hi-delete:hover { color: var(--red); background: rgba(248,113,113,0.12); }
+
+        .badge {
+            font-size: 11px; font-weight: 700; letter-spacing: 1px;
+            padding: 3px 8px; border-radius: 5px; font-family: var(--mono);
+        }
+        .b-PENDING   { background: rgba(251,191,36,0.15);  color: var(--yellow); border: 1px solid var(--yellow); }
+        .b-RUNNING   { background: rgba(96,165,250,0.15);  color: var(--blue);   border: 1px solid var(--blue); }
+        .b-COMPLETED { background: rgba(74,222,128,0.15);  color: var(--green);  border: 1px solid var(--green); }
+        .b-FAILED    { background: rgba(248,113,113,0.15); color: var(--red);    border: 1px solid var(--red); }
+
+        .empty { text-align: center; padding: 36px 16px; color: var(--dim); font-size: 14px; }
+        .empty-icon { font-size: 28px; margin-bottom: 12px; opacity: 0.3; }
+
+        /* ─── Map ──────────────────────────────────── */
+        #map { flex-grow: 1; height: 100%; }
+
+        /* ─── Leaflet dark-theme overrides ─────────── */
+        .leaflet-bar a,
+        .leaflet-bar a:hover {
+            background-color: var(--card) !important;
+            border-bottom-color: var(--border) !important;
+            color: var(--text) !important;
+        }
+        .leaflet-bar a:hover { background-color: var(--panel) !important; }
+        .leaflet-bar a.leaflet-disabled {
+            background-color: var(--bg) !important;
+            color: var(--dim) !important;
+        }
+        .leaflet-draw-toolbar a {
+            background-image: url('/vendor/images/spritesheet.png');
+        }
+        .leaflet-draw-toolbar a.leaflet-draw-toolbar-button-enabled {
+            background-color: rgba(56,189,248,0.25) !important;
+        }
+        .leaflet-touch .leaflet-bar a { line-height: 30px; }
+        .leaflet-control-container .leaflet-bar {
+            border: 1px solid var(--border) !important;
+            box-shadow: none !important;
+        }
+
+        /* ─── Time slider ──────────────────────────── */
+        #time-slider-container {
+            position: absolute; bottom: 28px; left: 408px; right: 16px;
+            background: rgba(11,15,26,0.95); border: 1px solid var(--border);
+            padding: 14px 20px; border-radius: 10px;
+            z-index: 1000; display: none; backdrop-filter: blur(8px);
+        }
+        #time-slider-container label {
+            font-family: var(--mono); font-size: 12px; color: var(--dim);
+            letter-spacing: 1px; display: block; margin-bottom: 8px;
+        }
+        #current-date { color: var(--accent); font-weight: 700; }
+        #time-slider { width: 100%; accent-color: var(--accent); }
+        /* Credit bar */
+        #credit-bar{padding:10px 20px 12px;border-top:1px solid var(--border);background:rgba(56,189,248,0.04);}
+        .credit-row{display:flex;align-items:center;font-family:var(--mono);font-size:12px;}
+        .credit-label{color:var(--dim);letter-spacing:1px;}
+        #credit-balance{margin-left:auto;color:var(--accent);font-weight:700;font-size:14px;letter-spacing:1px;}
+        .credit-surface-row{margin-top:5px;}
+        #credit-surface{margin-left:auto;color:var(--sub);font-size:11px;}
+        #credit-prog-wrap{margin-top:7px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+        #credit-prog-bar{height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width 0.4s ease;}
+    </style>
+</head>
+<body>
+
+<!-- Auth overlay -->
+<div id="auth-overlay">
+    <div id="auth-box">
+        <div class="auth-logo">
+            <div class="auth-logo-title">AI SCOUT</div>
+            <div class="auth-logo-sub">Command Center — Secure Access</div>
+        </div>
+        <div id="auth-tabs">
+            <button class="active" onclick="showTab('login')">LOGIN</button>
+            <button onclick="showTab('apikey')">API KEY</button>
+        </div>
+        <div id="tab-login">
+            <input id="auth-username" type="text" placeholder="Username" autocomplete="username" />
+            <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" />
+            <button class="btn-auth" onclick="doLogin()">AUTHENTICATE</button>
+        </div>
+        <div id="tab-apikey" style="display:none">
+            <input id="auth-apikey" type="text" placeholder="sk-..." autocomplete="off" />
+            <button class="btn-auth" onclick="saveApiKey()">CONNECT</button>
+        </div>
+        <div id="auth-error"></div>
+    </div>
+</div>
+
+<!-- Tutorial overlay -->
+<div id="tutorial-overlay">
+    <div id="tutorial-box">
+        <div class="tut-header-row">
+            <div class="tut-logo-title">AI SCOUT</div>
+            <div class="tut-badge">QUICK START</div>
+        </div>
+
+        <!-- Step 1: Welcome -->
+        <div class="tut-step tut-active">
+            <div class="tut-step-num">Step 1 of 5</div>
+            <div class="tut-step-title">Welcome to AI SCOUT</div>
+            <div class="tut-visual"><div class="tut-icon-ring">◈</div></div>
+            <div class="tut-step-body">
+                AI SCOUT is an <strong>evidence-grade satellite intelligence platform</strong>.
+                It transforms raw Copernicus satellite data into auditable, legally-defensible
+                environmental intelligence — complete with SHA-256 provenance hashing and PDF reports.
+                <ul class="tut-step-list" style="margin-top:16px;">
+                    <li><div class="tut-bullet">1</div><span>Draw an Area of Interest on the map</span></li>
+                    <li><div class="tut-bullet">2</div><span>Configure date range and sensor type</span></li>
+                    <li><div class="tut-bullet">3</div><span>Launch a mission and monitor progress</span></li>
+                    <li><div class="tut-bullet">4</div><span>Download your evidence-grade PDF report</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Step 2: Draw AOI -->
+        <div class="tut-step">
+            <div class="tut-step-num">Step 2 of 5</div>
+            <div class="tut-step-title">Draw Your Area of Interest</div>
+            <div class="tut-visual"><div class="tut-icon-ring">⬡</div></div>
+            <div class="tut-step-body">
+                Use the <strong>draw toolbar</strong> on the right side of the map to define
+                the geographic area you want to monitor.
+                <ul class="tut-step-list" style="margin-top:16px;">
+                    <li><div class="tut-bullet">▭</div><span><strong>Rectangle tool</strong> — click and drag to define a bounding box</span></li>
+                    <li><div class="tut-bullet">⬡</div><span><strong>Polygon tool</strong> — click multiple points to draw any shape, double-click to finish</span></li>
+                    <li><div class="tut-bullet">◎</div><span>The AOI indicator in the sidebar confirms your selection with coordinates</span></li>
+                </ul>
+                <p style="margin-top:14px;">You can <strong>edit or delete</strong> your AOI at any time using the edit controls in the draw toolbar.</p>
+            </div>
+        </div>
+
+        <!-- Step 3: Parameters -->
+        <div class="tut-step">
+            <div class="tut-step-num">Step 3 of 5</div>
+            <div class="tut-step-title">Configure Mission Parameters</div>
+            <div class="tut-visual"><div class="tut-icon-ring">≡</div></div>
+            <div class="tut-step-body">
+                Set your <strong>Date Range</strong> and choose a <strong>Sensor</strong> type in the sidebar:
+                <ul class="tut-step-list" style="margin-top:16px;">
+                    <li><div class="tut-bullet">O</div><span><strong>OPTICAL</strong> — Sentinel-2 visible-spectrum imagery. Best for clear-sky conditions.</span></li>
+                    <li><div class="tut-bullet">R</div><span><strong>RADAR</strong> — Sentinel-1 SAR. Penetrates cloud cover, works day and night.</span></li>
+                    <li><div class="tut-bullet">N</div><span><code>NDVI</code> vegetation health &nbsp;·&nbsp; <code>NDWI</code> water extent &nbsp;·&nbsp; <code>NBR</code> burn severity</span></li>
+                    <li><div class="tut-bullet">S</div><span><strong>S1 RTC</strong> — Terrain-corrected radar for precise land-change analysis.</span></li>
+                </ul>
+                <p style="margin-top:14px;">Optionally set <strong>Schedule</strong> to <code>DAILY</code> for recurring automated missions.</p>
+            </div>
+        </div>
+
+        <!-- Step 4: Launch -->
+        <div class="tut-step">
+            <div class="tut-step-num">Step 4 of 5</div>
+            <div class="tut-step-title">Launch a Mission</div>
+            <div class="tut-visual"><div class="tut-icon-ring">▶</div></div>
+            <div class="tut-step-body">
+                Click <strong>LAUNCH MISSION</strong> at the bottom of the sidebar to submit your analysis.
+                <ul class="tut-step-list" style="margin-top:16px;">
+                    <li><div class="tut-bullet">1</div><span>Status changes to <strong style="color:var(--yellow)">RUNNING</strong> — the system is fetching and processing satellite data</span></li>
+                    <li><div class="tut-bullet">2</div><span>Each mission gets a unique <code>JOB-XXXXXXXX</code> ID for full traceability</span></li>
+                    <li><div class="tut-bullet">3</div><span>Processing time varies by AOI size, date range, and cloud coverage</span></li>
+                    <li><div class="tut-bullet">4</div><span>Status updates automatically every few seconds — no refresh needed</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Step 5: Results -->
+        <div class="tut-step">
+            <div class="tut-step-num">Step 5 of 5</div>
+            <div class="tut-step-title">View Results &amp; Download Reports</div>
+            <div class="tut-visual"><div class="tut-icon-ring">↓</div></div>
+            <div class="tut-step-body">
+                Once status shows <strong style="color:var(--green)">COMPLETED</strong>, your data is ready:
+                <ul class="tut-step-list" style="margin-top:16px;">
+                    <li><div class="tut-bullet">M</div><span>Toggle <strong>Processed Layer</strong> in the sidebar to overlay results on the map</span></li>
+                    <li><div class="tut-bullet">T</div><span>Use the <strong>Time Scrubber</strong> at the bottom of the map to step through date snapshots</span></li>
+                    <li><div class="tut-bullet">P</div><span>Click <strong>DOWNLOAD PDF</strong> to get your evidence-grade report with SHA-256 provenance hash</span></li>
+                    <li><div class="tut-bullet">H</div><span>All past missions are listed in <strong>Mission History</strong> — click any entry to reload it</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="tut-footer">
+            <button id="tut-skip" onclick="closeTutorial()">SKIP TUTORIAL</button>
+            <div class="tut-dots" id="tut-dots">
+                <div class="tut-dot tut-dot-active" onclick="tutGoTo(0)"></div>
+                <div class="tut-dot" onclick="tutGoTo(1)"></div>
+                <div class="tut-dot" onclick="tutGoTo(2)"></div>
+                <div class="tut-dot" onclick="tutGoTo(3)"></div>
+                <div class="tut-dot" onclick="tutGoTo(4)"></div>
+            </div>
+            <div class="tut-nav">
+                <button id="tut-prev" class="tut-btn-back" onclick="tutPrev()" disabled>BACK</button>
+                <button id="tut-next" class="tut-btn-next" onclick="tutNext()">NEXT</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sidebar -->
+<div id="sidebar">
+    <div id="hdr">
+        <div class="hdr-top">
+            <div class="brand">
+                <div class="brand-icon">◈</div>
+                <div>
+                    <div class="brand-name">AI SCOUT</div>
+                    <div class="brand-sub">Command Center</div>
+                </div>
+            </div>
+            <div id="utc-clock">
+                <div id="clock-date">—</div>
+                <div id="clock-time">—</div>
+            </div>
+        </div>
+        <div class="hdr-user">
+            <span id="user-label">NOT AUTHENTICATED</span>
+            <button id="logout-btn" onclick="logout()">LOGOUT</button>
+        </div>
+        <div id="credit-bar" style="display:none">
+            <div class="credit-row">
+                <span class="credit-label">CREDITS</span>
+                <span id="credit-balance">—</span>
+            </div>
+            <div class="credit-row credit-surface-row">
+                <span class="credit-label">SURFACE TODAY</span>
+                <span id="credit-surface">—</span>
+            </div>
+            <div id="credit-prog-wrap"><div id="credit-prog-bar"></div></div>
+        </div>
+    </div>
+
+    <div id="body">
+
+        <!-- Parameters -->
+        <div class="block">
+            <div class="block-title"><span class="block-title-text">Mission Parameters</span></div>
+            <div class="block-body">
+
+                <div class="field">
+                    <div class="field-label">Date Range</div>
+                    <div class="date-row">
+                        <input type="date" id="start-date">
+                        <input type="date" id="end-date">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">Sensor Mode</div>
+                    <div class="sensor-grid">
+                        <div class="sensor-btn active" data-sensor="OPTICAL" onclick="selectSensor(this)">
+                            <span class="sensor-code">OPT</span>
+                            <span class="sensor-name">Sentinel-2</span>
+                        </div>
+                        <div class="sensor-btn" data-sensor="RADAR" onclick="selectSensor(this)">
+                            <span class="sensor-code">SAR</span>
+                            <span class="sensor-name">Sentinel-1</span>
+                        </div>
+                        <div class="sensor-btn" data-sensor="NDVI" onclick="selectSensor(this)">
+                            <span class="sensor-code">NDVI</span>
+                            <span class="sensor-name">Vegetation</span>
+                        </div>
+                        <div class="sensor-btn" data-sensor="NDWI" onclick="selectSensor(this)">
+                            <span class="sensor-code">NDWI</span>
+                            <span class="sensor-name">Water</span>
+                        </div>
+                        <div class="sensor-btn" data-sensor="NBR" onclick="selectSensor(this)">
+                            <span class="sensor-code">NBR</span>
+                            <span class="sensor-name">Burn Ratio</span>
+                        </div>
+                        <div class="sensor-btn" data-sensor="S1_RTC" onclick="selectSensor(this)">
+                            <span class="sensor-code">RTC</span>
+                            <span class="sensor-name">Terrain Corr</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">Schedule</div>
+                    <div class="sched-row">
+                        <div class="sched-opt active" data-recurrence="" onclick="selectRecurrence(this)">ONE-TIME</div>
+                        <div class="sched-opt" data-recurrence="DAILY" onclick="selectRecurrence(this)">DAILY</div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">Area of Interest</div>
+                    <div id="aoi-box">
+                        <div id="aoi-dot"></div>
+                        <span id="aoi-text">Draw a polygon or rectangle on the map</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <button id="launch-btn">▶ &nbsp;LAUNCH MISSION</button>
+
+        <!-- Status -->
+        <div class="block">
+            <div class="block-title"><span class="block-title-text">Active Mission</span></div>
+            <div class="block-body">
+                <div class="status-row">
+                    <div class="sdot sdot-ready" id="sdot"></div>
+                    <span id="status-label">READY</span>
+                </div>
+                <div id="job-card-wrap"></div>
+                <div id="error-banner"></div>
+                <button id="pdf-btn" disabled onclick="downloadPDF()">
+                    ↓ &nbsp;DOWNLOAD PDF REPORT
+                </button>
+            </div>
+        </div>
+
+        <!-- Layer control -->
+        <div class="block">
+            <div class="block-title"><span class="block-title-text">Layer Control</span></div>
+            <div class="block-body">
+                <div class="layer-row">
+                    <span class="layer-label">Show Processed Layer</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="toggle-processed" checked>
+                        <span class="tog-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="block">
+            <div class="block-title">
+                <span class="block-title-text">Mission History</span>
+                <span id="history-count">0</span>
+            </div>
+            <div class="block-body">
+                <div class="filter-row">
+                    <button class="fbtn active" data-status="" onclick="filterHistory(this)">ALL</button>
+                    <button class="fbtn" data-status="COMPLETED" onclick="filterHistory(this)">DONE</button>
+                    <button class="fbtn" data-status="RUNNING" onclick="filterHistory(this)">RUN</button>
+                    <button class="fbtn" data-status="PENDING" onclick="filterHistory(this)">PEND</button>
+                    <button class="fbtn" data-status="FAILED" onclick="filterHistory(this)">FAIL</button>
+                </div>
+                <ul id="history-list">
+                    <li class="empty"><div class="empty-icon">◎</div>No missions yet.</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div id="map"></div>
+
+<div id="time-slider-container">
+    <label>TIME SCRUBBER &nbsp;·&nbsp; <span id="current-date">—</span></label>
+    <input type="range" id="time-slider" min="0" max="0" step="1" value="0">
+</div>
+
+<script src="/vendor/leaflet.js"></script>
+<script src="/vendor/leaflet.draw.js"></script>
+<script>
+// UTC clock
+function tickClock(){var s=new Date().toISOString();document.getElementById('clock-date').textContent=s.slice(0,10);document.getElementById('clock-time').textContent=s.slice(11,19)+' UTC';}
+tickClock();setInterval(tickClock,1000);
+
+// Auth
+var AUTH_KEY='scout_api_key',AUTH_TOKEN='scout_jwt';
+function getAuthHeader(){var j=sessionStorage.getItem(AUTH_TOKEN);if(j)return{'Authorization':'Bearer '+j};var k=localStorage.getItem(AUTH_KEY);if(k)return{'X-API-Key':k};return{};}
+function isAuthed(){return!!(sessionStorage.getItem(AUTH_TOKEN)||localStorage.getItem(AUTH_KEY));}
+function logout(){sessionStorage.removeItem(AUTH_TOKEN);localStorage.removeItem(AUTH_KEY);document.getElementById('user-label').textContent='NOT AUTHENTICATED';clearCredits();showAuth();}
+async function loadCredits(){
+    try{
+        var r=await apiFetch('/auth/credits');
+        if(!r||!r.ok)return;
+        var d=await r.json();
+        document.getElementById('credit-balance').textContent=Math.floor(d.credit_balance).toLocaleString();
+        var cap=d.daily_surface_cap_km2,used=d.daily_surface_used_km2||0;
+        if(cap>0){
+            document.getElementById('credit-surface').textContent=used.toFixed(0)+' / '+cap.toFixed(0)+' km²';
+            document.getElementById('credit-prog-bar').style.width=Math.min(100,(used/cap*100)).toFixed(1)+'%';
+        }else{
+            document.getElementById('credit-surface').textContent='unlimited';
+            document.getElementById('credit-prog-bar').style.width='0%';
+        }
+        document.getElementById('credit-bar').style.display='';
+    }catch(e){}
+}
+function clearCredits(){
+    document.getElementById('credit-bar').style.display='none';
+    document.getElementById('credit-balance').textContent='—';
+    document.getElementById('credit-surface').textContent='—';
+    document.getElementById('credit-prog-bar').style.width='0%';
+}
+function showAuth(){document.getElementById('auth-overlay').classList.add('visible');}
+function hideAuth(){document.getElementById('auth-overlay').classList.remove('visible');}
+function showTab(tab){
+    document.getElementById('tab-login').style.display=tab==='login'?'':'none';
+    document.getElementById('tab-apikey').style.display=tab==='apikey'?'':'none';
+    document.querySelectorAll('#auth-tabs button').forEach(function(b,i){b.classList.toggle('active',(i===0)===(tab==='login'));});
+    document.getElementById('auth-error').textContent='';
+}
+async function doLogin(){
+    var user=document.getElementById('auth-username').value.trim();
+    var pass=document.getElementById('auth-password').value;
+    var err=document.getElementById('auth-error');
+    err.textContent='';
+    if(!user||!pass){err.textContent='Enter username and password.';return;}
+    try{
+        var res=await fetch('/auth/login',{method:'POST',body:new URLSearchParams({username:user,password:pass})});
+        var data=await res.json();
+        if(!res.ok){err.textContent=data.detail||'Login failed.';return;}
+        sessionStorage.setItem(AUTH_TOKEN,data.access_token);
+        document.getElementById('user-label').textContent=user.toUpperCase()+' · '+(data.role||'').toUpperCase();
+        hideAuth();loadHistory();loadCredits();maybeShowTutorial();
+    }catch(e){err.textContent='Network error.';}
+}
+function saveApiKey(){
+    var key=document.getElementById('auth-apikey').value.trim();
+    var err=document.getElementById('auth-error');
+    if(!key){err.textContent='Enter your API key.';return;}
+    if(!key.startsWith('sk-')){err.textContent='API keys start with sk-';return;}
+    localStorage.setItem(AUTH_KEY,key);
+    document.getElementById('user-label').textContent='API KEY AUTH';
+    hideAuth();loadHistory();loadCredits();
+}
+async function checkAuth(){
+    try{
+        var p=await fetch('/jobs?limit=1');
+        if(p.status===401||p.status===403){if(!isAuthed())showAuth();}
+        else{hideAuth();document.getElementById('user-label').textContent='DEV MODE';loadCredits();}
+    }catch(e){showAuth();}
+}
+
+// Fetch wrapper
+async function apiFetch(url,opts){
+    opts=opts||{};
+    var h=Object.assign({'Content-Type':'application/json'},getAuthHeader(),opts.headers||{});
+    var r=await fetch(url,Object.assign({},opts,{headers:h}));
+    if(r.status===401||r.status===403){showAuth();throw new Error('Not authenticated');}
+    return r;
+}
+
+// Map
+var map=L.map('map').setView([48.2,16.35],10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
+var TILE_TPL='/tiles/{z}/{x}/{y}';
+var processedLyr=L.tileLayer(TILE_TPL,{opacity:0.7,maxZoom:18,attribution:'AI SCOUT'});
+document.getElementById('toggle-processed').addEventListener('change',function(e){
+    if(e.target.checked)processedLyr.addTo(map);else map.removeLayer(processedLyr);
+});
+var drawnItems=new L.FeatureGroup();map.addLayer(drawnItems);
+var _aoiStyle={color:'#38bdf8',weight:2,opacity:0.9,fill:true,fillColor:'#38bdf8',fillOpacity:0.12};
+map.addControl(new L.Control.Draw({
+    draw:{
+        polygon:{shapeOptions:_aoiStyle},
+        marker:false,
+        polyline:false,
+        rectangle:{shapeOptions:_aoiStyle},
+        circle:false,
+        circlemarker:false
+    },
+    edit:{featureGroup:drawnItems}
+}));
+map.on(L.Draw.Event.CREATED,function(e){
+    drawnItems.clearLayers();
+    if(e.layer.setStyle)e.layer.setStyle(_aoiStyle);
+    drawnItems.addLayer(e.layer);
+    updateAOI(e.layer);
+});
+map.on(L.Draw.Event.DELETED,function(){updateAOI(null);});
+function updateAOI(layer){
+    var dot=document.getElementById('aoi-dot'),txt=document.getElementById('aoi-text');
+    if(!layer){dot.className='';txt.textContent='Draw a polygon or rectangle on the map';return;}
+    dot.classList.add('set');
+    var g=layer.toGeoJSON().geometry;
+    if(g.type==='Point'){txt.textContent=g.coordinates[1].toFixed(5)+'°N  '+g.coordinates[0].toFixed(5)+'°E';}
+    else{
+        var b=layer.getBounds?layer.getBounds():null;
+        txt.textContent=b?b.getSouth().toFixed(3)+'°N '+b.getWest().toFixed(3)+'°E  →  '+b.getNorth().toFixed(3)+'°N '+b.getEast().toFixed(3)+'°E':'AOI defined';
+    }
+}
+
+// Defaults
+var _t=new Date(),_m=new Date();_m.setDate(_t.getDate()-30);
+document.getElementById('end-date').valueAsDate=_t;
+document.getElementById('start-date').valueAsDate=_m;
+
+// State
+var currentJobId=null,currentJobData=null,currentOverlay=null,pollTimer=null,historyFilter='';
+var selectedSensor='OPTICAL',selectedRecurrence='';
+
+function selectSensor(el){document.querySelectorAll('.sensor-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');selectedSensor=el.dataset.sensor;}
+function selectRecurrence(el){document.querySelectorAll('.sched-opt').forEach(function(b){b.classList.remove('active');});el.classList.add('active');selectedRecurrence=el.dataset.recurrence;}
+
+// Polling
+function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
+function clearProcessedLayer(){
+    document.getElementById('toggle-processed').checked=false;
+    if(map.hasLayer(processedLyr))map.removeLayer(processedLyr);
+}
+function startPolling(jobId){
+    stopPolling();
+    pollTimer=setInterval(async function(){
+        try{var r=await apiFetch('/jobs/'+jobId);if(!r.ok)return;var j=await r.json();renderStatus(j);if(j.status==='COMPLETED'||j.status==='FAILED'){stopPolling();loadHistory();loadCredits();clearProcessedLayer();}}catch(e){}
+    },3000);
+}
+
+// Status rendering
+function renderStatus(job){
+    currentJobData=job;
+    document.getElementById('sdot').className='sdot sdot-'+(job.status||'ready').toLowerCase();
+    document.getElementById('status-label').textContent=job.status||'READY';
+    document.getElementById('job-card-wrap').innerHTML=
+        '<div class="job-card">'+
+        '<div class="job-card-id"><span>'+job.id+'</span>'+
+        '<button class="copy-id" onclick="copyId(\''+job.id+'\')">COPY</button></div>'+
+        '<div class="job-card-meta">'+(job.sensor||'')+' &nbsp;·&nbsp; '+(job.created_at||'').split('T')[0]+'</div>'+
+        (job.tag?'<span class="job-tag">'+job.tag+'</span>':'')+
+        '</div>';
+    var eb=document.getElementById('error-banner');
+    eb.style.display='none';
+    if(job.status==='FAILED'&&job.error){eb.style.display='block';eb.textContent=job.error;}
+    if(job.bbox)map.fitBounds([[job.bbox[1],job.bbox[0]],[job.bbox[3],job.bbox[2]]]);
+    processedLyr.setUrl(TILE_TPL+'?job_id='+job.id);
+    if(document.getElementById('toggle-processed').checked&&!map.hasLayer(processedLyr))processedLyr.addTo(map);
+    document.getElementById('pdf-btn').disabled=job.status!=='COMPLETED';
+    if(job.search_results&&job.search_results.results)setupSlider(job.search_results.results);
+}
+function copyId(id){navigator.clipboard.writeText(id).catch(function(){});}
+async function downloadPDF(){
+    if(!currentJobId)return;
+    try{
+        var r=await apiFetch('/jobs/'+currentJobId+'/pdf');
+        if(!r.ok){var e=await r.json().catch(function(){return{detail:'Download failed'};});alert(e.detail||'Download failed');return;}
+        var blob=await r.blob();
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement('a');
+        a.href=url;a.download='report_'+currentJobId+'.pdf';
+        document.body.appendChild(a);a.click();
+        document.body.removeChild(a);URL.revokeObjectURL(url);
+    }catch(e){if(e.message!=='Not authenticated')alert('Download failed: '+e.message);}
+}
+
+// History
+async function loadHistory(){
+    try{
+        var url='/jobs?limit=50'+(historyFilter?'&status='+historyFilter:'');
+        var r=await apiFetch(url);var d=await r.json();
+        var jobs=Array.isArray(d)?d:(d.jobs||[]);
+        document.getElementById('history-count').textContent=jobs.length;
+        var list=document.getElementById('history-list');list.innerHTML='';
+        if(!jobs.length){list.innerHTML='<li class="empty"><div class="empty-icon">◎</div>No missions found.</li>';return;}
+        jobs.forEach(function(job){
+            var li=document.createElement('li');
+            li.className='hi'+(job.id===currentJobId?' active':'');
+            li.innerHTML=
+                '<div class="hi-top"><span class="hi-id">'+job.id+'</span>'+
+                '<span style="display:flex;align-items:center;gap:8px;">'+
+                '<span class="badge b-'+job.status+'">'+job.status+'</span>'+
+                '<button class="hi-delete" title="Delete mission" aria-label="Delete mission">✕</button>'+
+                '</span></div>'+
+                '<div class="hi-meta"><span class="hi-sensor">'+(job.sensor||'N/A')+'</span>'+
+                '<span>'+(job.created_at||'').split('T')[0]+'</span>'+
+                (job.tag?'<span class="hi-tag">'+job.tag+'</span>':'')+
+                '</div>';
+            li.querySelector('.hi-delete').addEventListener('click',function(e){
+                e.stopPropagation();deleteJob(job.id);
+            });
+            li.onclick=function(){selectJob(job.id);};
+            list.appendChild(li);
+        });
+    }catch(e){if(e.message!=='Not authenticated')console.error('History failed',e);}
+}
+async function deleteJob(jobId){
+    if(!confirm('Delete mission '+jobId+'?'))return;
+    try{
+        var r=await apiFetch('/jobs/'+jobId,{method:'DELETE'});
+        if(!r.ok){var e=await r.json().catch(function(){return{};});throw new Error(e.detail||'HTTP '+r.status);}
+        if(currentJobId===jobId){
+            currentJobId=null;stopPolling();
+            document.getElementById('job-card-wrap').innerHTML='';
+            document.getElementById('sdot').className='sdot sdot-ready';
+            document.getElementById('status-label').textContent='READY';
+            document.getElementById('pdf-btn').disabled=true;
+        }
+        loadHistory();
+    }catch(e){if(e.message!=='Not authenticated')alert('Delete failed: '+e.message);}
+}
+function filterHistory(btn){
+    document.querySelectorAll('.fbtn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');historyFilter=btn.dataset.status;loadHistory();
+}
+async function selectJob(jobId){
+    currentJobId=jobId;stopPolling();loadHistory();clearProcessedLayer();
+    document.getElementById('sdot').className='sdot sdot-loading';
+    document.getElementById('status-label').textContent='LOADING';
+    document.getElementById('job-card-wrap').innerHTML='';
+    document.getElementById('error-banner').style.display='none';
+    document.getElementById('pdf-btn').disabled=true;
+    try{
+        var r=await apiFetch('/jobs/'+jobId);if(!r.ok)throw new Error('Not found');
+        var job=await r.json();renderStatus(job);
+        if(job.status==='PENDING'||job.status==='RUNNING')startPolling(jobId);
+    }catch(e){
+        if(e.message!=='Not authenticated'){document.getElementById('sdot').className='sdot sdot-failed';document.getElementById('status-label').textContent='ERROR';}
+    }
+}
+
+// Launch
+document.getElementById('launch-btn').addEventListener('click',async function(){
+    var start=document.getElementById('start-date').value;
+    var end=document.getElementById('end-date').value;
+    var layers=drawnItems.getLayers();
+    if(!layers.length){var box=document.getElementById('aoi-box');box.classList.add('alert');setTimeout(function(){box.classList.remove('alert');},600);return;}
+    var btn=document.getElementById('launch-btn');
+    btn.disabled=true;btn.textContent='⏳  LAUNCHING…';
+    document.getElementById('sdot').className='sdot sdot-running';
+    document.getElementById('status-label').textContent='LAUNCHING';
+    document.getElementById('job-card-wrap').innerHTML='';
+    document.getElementById('error-banner').style.display='none';
+    document.getElementById('pdf-btn').disabled=true;
+    clearProcessedLayer();
+    try{
+        var payload={geometry:layers[0].toGeoJSON().geometry,start_date:start,end_date:end,sensor:selectedSensor};
+        if(selectedRecurrence)payload.recurrence=selectedRecurrence;
+        var res=await apiFetch('/launch_custom_mission',{method:'POST',body:JSON.stringify(payload)});
+        if(!res.ok){var ed=await res.json().catch(function(){return{};});throw new Error(ed.detail||'HTTP '+res.status);}
+        var result=await res.json();
+        currentJobId=result.job_id;
+        document.getElementById('sdot').className='sdot sdot-running';
+        document.getElementById('status-label').textContent='RUNNING';
+        document.getElementById('job-card-wrap').innerHTML=
+            '<div class="job-card">'+
+            '<div class="job-card-id"><span>'+result.job_id+'</span>'+
+            '<button class="copy-id" onclick="copyId(\''+result.job_id+'\')">COPY</button></div>'+
+            '<div class="job-card-meta">'+selectedSensor+' &nbsp;·&nbsp; '+start+' → '+end+'</div>'+
+            (result.tag?'<span class="job-tag">'+result.tag+'</span>':'')+
+            '</div>';
+        await loadHistory();startPolling(result.job_id);
+    }catch(e){
+        if(e.message!=='Not authenticated'){
+            document.getElementById('sdot').className='sdot sdot-failed';
+            document.getElementById('status-label').textContent='FAILED';
+            var eb=document.getElementById('error-banner');eb.style.display='block';eb.textContent=e.message;
+        }
+    }finally{btn.disabled=false;btn.textContent='▶ \u00A0LAUNCH MISSION';}
+});
+
+// Time slider
+function setupSlider(results){
+    var sl=document.getElementById('time-slider'),c=document.getElementById('time-slider-container'),dl=document.getElementById('current-date');
+    if(currentOverlay){map.removeLayer(currentOverlay);currentOverlay=null;}
+    if(!results||!results.length){c.style.display='none';return;}
+    c.style.display='block';sl.max=results.length-1;sl.value=0;
+    if(results[0])dl.textContent=results[0].date;
+    function show(i){var it=results[i];dl.textContent=it.date;if(currentOverlay){map.removeLayer(currentOverlay);currentOverlay=null;}if(it.bbox&&it.preview_url)currentOverlay=L.imageOverlay(it.preview_url,[[it.bbox[1],it.bbox[0]],[it.bbox[3],it.bbox[2]]]).addTo(map);}
+    sl.oninput=function(){show(parseInt(this.value));};
+}
+
+// Tutorial
+var TUT_KEY='scout_tutorial_seen',tutStep=0,TUT_TOTAL=5;
+function maybeShowTutorial(){if(!localStorage.getItem(TUT_KEY)){tutStep=0;renderTutStep();document.getElementById('tutorial-overlay').classList.add('visible');}}
+function closeTutorial(){localStorage.setItem(TUT_KEY,'1');document.getElementById('tutorial-overlay').classList.remove('visible');}
+function renderTutStep(){
+    document.querySelectorAll('.tut-step').forEach(function(s,i){s.classList.toggle('tut-active',i===tutStep);});
+    document.getElementById('tut-prev').disabled=tutStep===0;
+    document.getElementById('tut-next').textContent=tutStep===TUT_TOTAL-1?'GET STARTED':'NEXT';
+    document.querySelectorAll('.tut-dot').forEach(function(d,i){d.classList.toggle('tut-dot-active',i===tutStep);});
+    document.getElementById('tut-skip').style.visibility=tutStep===TUT_TOTAL-1?'hidden':'visible';
+}
+function tutNext(){if(tutStep<TUT_TOTAL-1){tutStep++;renderTutStep();}else{closeTutorial();}}
+function tutPrev(){if(tutStep>0){tutStep--;renderTutStep();}}
+function tutGoTo(i){tutStep=i;renderTutStep();}
+
+// Boot
+checkAuth().then(function(){if(isAuthed()){loadHistory();loadCredits();}});
+</script>
+</body>
+</html>

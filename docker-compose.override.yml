@@ -1,0 +1,26 @@
+# Local development overrides — NOT committed with production secrets.
+# docker-compose up  (automatically merges this file)
+version: "3.9"
+
+services:
+  scout:
+    build:
+      context: .
+      target: builder        # use the full build stage (has dev tools)
+    volumes:
+      - .:/app               # live code reload via --reload
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      LOG_FORMAT: plain
+
+  db:
+    ports:
+      - "5432:5432"          # expose PostgreSQL locally for psql / DBeaver
+
+  nginx:
+    profiles:
+      - nginx                # opt-in: docker-compose --profile nginx up

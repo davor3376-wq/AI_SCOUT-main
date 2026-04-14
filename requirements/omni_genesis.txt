@@ -1,0 +1,46 @@
+rasterio
+pystac
+fastapi
+uvicorn[standard]
+geopandas
+scikit-learn
+shapely
+sentinelhub
+requests
+httpx
+python-dotenv
+python-telegram-bot
+numpy
+pillow
+reportlab
+matplotlib
+simplekml
+qrcode
+mercantile
+
+# Auth
+python-jose[cryptography]
+bcrypt
+passlib[bcrypt]
+pyotp
+
+# Rate limiting
+slowapi
+
+# Structured logging
+python-json-logger
+
+# Billing
+stripe
+
+# Database migrations
+alembic
+sqlalchemy
+
+# PostgreSQL backend (optional — only needed when DATABASE_URL=postgresql://...)
+psycopg2-binary
+
+# Testing
+pytest
+pytest-asyncio
+httpx
