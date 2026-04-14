@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgeos-dev libproj-dev build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 WORKDIR /app
 
 # Install Python dependencies first so Docker layer-caches them

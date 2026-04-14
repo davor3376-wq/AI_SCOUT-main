@@ -27,9 +27,9 @@ STATS_DIR: str = os.environ.get("SCOUT_STATS_DIR", os.path.join("data", "stats")
 # Auth & Security
 # ---------------------------------------------------------------------------
 SECRET_KEY: str = os.environ.get("SCOUT_SECRET_KEY", "")
-ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
-REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
-MIN_PASSWORD_LENGTH: int = int(os.environ.get("SCOUT_MIN_PASSWORD_LENGTH", "10"))
+ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES") or "480")
+REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS") or "7")
+MIN_PASSWORD_LENGTH: int = int(os.environ.get("SCOUT_MIN_PASSWORD_LENGTH") or "10")
 
 # ---------------------------------------------------------------------------
 # CORS
@@ -39,7 +39,7 @@ ALLOWED_ORIGINS: str = os.environ.get("SCOUT_ALLOWED_ORIGINS", "")
 # ---------------------------------------------------------------------------
 # Cleanup / Retention
 # ---------------------------------------------------------------------------
-DATA_RETENTION_DAYS: int = int(os.environ.get("DATA_RETENTION_DAYS", "90"))
+DATA_RETENTION_DAYS: int = int(os.environ.get("DATA_RETENTION_DAYS") or "90")
 
 # ---------------------------------------------------------------------------
 # Rate Limiting
