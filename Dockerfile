@@ -26,4 +26,10 @@ USER scout
 EXPOSE 8000
 
 # PORT is injected by Railway; WORKERS defaults to 2.
-CMD ["sh", "-c", "alembic upgrade head; uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WORKERS:-2}"]
+CMD ["sh", "-c", "\
+  alembic upgrade head; \
+  echo '=== Testing app import ===' && \
+  python -c 'from app.api.main import app; print(\"Import OK\")' && \
+  echo '=== Starting uvicorn ===' && \
+  uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000} \
+"]
