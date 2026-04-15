@@ -16,18 +16,6 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
-from sentinelhub import SentinelHubCatalog, BBox, CRS, DataCollection
-from app.ingestion.auth import SentinelHubAuth
-import mercantile
-import rasterio
-import rasterio.errors
-import rasterio.windows
-import rasterio.warp
-from rasterio.warp import reproject
-from rasterio.enums import Resampling
-from rasterio.transform import from_bounds
-import numpy as np
-from PIL import Image
 
 import asyncio
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -288,6 +276,8 @@ async def launch_mission(
     background_tasks: BackgroundTasks,
     current_user: Dict = Depends(require_role("analyst", "admin")),
 ):
+    from sentinelhub import SentinelHubCatalog, BBox, CRS, DataCollection  # noqa: PLC0415
+    from app.ingestion.auth import SentinelHubAuth  # noqa: PLC0415
     auth_obj = SentinelHubAuth()
     catalog = SentinelHubCatalog(config=auth_obj.config)
 
@@ -608,8 +598,9 @@ async def get_tile(
             tif_path = max(candidates, key=os.path.getmtime)
 
     def _transparent() -> Response:
+        from PIL import Image as _PILImage  # noqa: PLC0415
         buf = io.BytesIO()
-        Image.new("RGBA", (256, 256), (0, 0, 0, 0)).save(buf, format="PNG")
+        _PILImage.new("RGBA", (256, 256), (0, 0, 0, 0)).save(buf, format="PNG")
         return Response(content=buf.getvalue(), media_type="image/png")
 
     if not tif_path:
@@ -628,7 +619,17 @@ async def get_tile(
 
 @lru_cache(maxsize=512)
 def _render_tile_cached(tif_path: str, z: int, x: int, y: int, _mtime: float) -> Optional[bytes]:
-    import matplotlib.pyplot as plt  # lazy: avoids 3-6 s startup cost; cached after first call
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+    import rasterio  # noqa: PLC0415
+    import rasterio.errors  # noqa: PLC0415
+    import rasterio.windows  # noqa: PLC0415
+    import rasterio.warp  # noqa: PLC0415
+    from rasterio.warp import reproject  # noqa: PLC0415
+    from rasterio.enums import Resampling  # noqa: PLC0415
+    from rasterio.transform import from_bounds  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+    import mercantile  # noqa: PLC0415
+    from PIL import Image  # noqa: PLC0415
     bounds = mercantile.xy_bounds(x, y, z)
     left, bottom, right, top = bounds.left, bounds.bottom, bounds.right, bounds.top
     dst_crs = "EPSG:3857"
