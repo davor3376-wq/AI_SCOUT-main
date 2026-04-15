@@ -46,8 +46,6 @@ from app.api.dependencies import get_current_user, require_role
 from app.auth.manager import UserManager
 from app.auth.router import router as auth_router
 from app.api.billing_router import router as billing_router
-from app.core.mission_executor import process_mission_task
-from app.core.scheduler import MissionScheduler
 from app.api.usage_controller import (
     UsageController,
     RegionalLicenseViolation,
@@ -67,7 +65,7 @@ DB_PATH = SCOUT_DB_PATH
 # ---------------------------------------------------------------------------
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
-scheduler = MissionScheduler()
+_scheduler = None
 audit = AuditLogger(db_path=DB_PATH)
 
 
@@ -76,6 +74,7 @@ audit = AuditLogger(db_path=DB_PATH)
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _scheduler
     # --- startup ---
     if ENVIRONMENT == "production" and not SECRET_KEY:
         raise RuntimeError(
@@ -94,13 +93,16 @@ async def lifespan(app: FastAPI):
             except Exception as exc:
                 logger.warning(f"Bootstrap admin creation failed: {exc}")
 
-    asyncio.create_task(scheduler.start())
+    from app.core.scheduler import MissionScheduler
+    _scheduler = MissionScheduler()
+    asyncio.create_task(_scheduler.start())
     logger.info(f"AI SCOUT started [env={ENVIRONMENT}].")
 
     yield
 
     # --- shutdown ---
-    scheduler.stop()
+    if _scheduler:
+        _scheduler.stop()
 
 
 app = FastAPI(
@@ -457,6 +459,7 @@ async def launch_mission(
         "launched_by": current_user.get("username"),
     })
 
+    from app.core.mission_executor import process_mission_task
     background_tasks.add_task(process_mission_task, job_id, bbox, time_interval, sensor)
 
     audit.log(
