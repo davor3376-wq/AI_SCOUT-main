@@ -1420,9 +1420,10 @@ class PDFReportGenerator:
                 ]))
 
                 # ── 4. Land cover breakdown table ─────────────────────────────
+                # Improved contrast backgrounds for better readability
                 _CLASS_BG = {
                     WATER:      colors.HexColor("#d0e8ff"),
-                    BARE_SOIL:  colors.HexColor("#f5e6cc"),
+                    BARE_SOIL:  colors.HexColor("#fff3e0"),  # Darkened from #f5e6cc for better contrast
                     VEGETATION: colors.HexColor("#d4edda"),
                     URBAN:      colors.HexColor("#f8d7d7"),
                 }
@@ -1557,6 +1558,7 @@ class PDFReportGenerator:
                             ["Alert level",        level],
                         ]
                         delta_tbl = Table(delta_rows, colWidths=[4.5 * cm, 4.0 * cm])
+                        # Fixed: start ROWBACKGROUNDS from row 1 (not 0) so header stays navy, data rows alternate
                         delta_tbl.setStyle(TableStyle([
                             ("BACKGROUND",  (0, 0), (-1, 0),  RED if level == "HIGH" else (AMBER if level == "MEDIUM" else NAVY)),
                             ("TEXTCOLOR",   (0, 0), (-1, 0),  WHITE),
@@ -1566,10 +1568,10 @@ class PDFReportGenerator:
                             ("FONTNAME",    (0, 1), (0, -1),  "Helvetica-Bold"),
                             ("TEXTCOLOR",   (0, 1), (-1, -1), GRAY_DARK),
                             ("GRID",        (0, 0), (-1, -1), 0.3, colors.HexColor("#cfd8dc")),
-                            ("TOPPADDING",  (0, 0), (-1, -1), 4),
-                            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-                            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, colors.HexColor("#f5f5f5")]),
+                            ("TOPPADDING",  (0, 0), (-1, -1), 5),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f8f9fa"), WHITE]),
                         ]))
 
                         # Improved delta layout: better proportions and cleaner spacing
@@ -1577,9 +1579,9 @@ class PDFReportGenerator:
                         _delta_spacer  = 0.4 * cm
                         _interp_col_w  = 16.2 * cm - _delta_tbl_w - _delta_spacer  # ~7.6 cm
 
-                        # Interpretation box with better text wrapping
+                        # Interpretation box with improved text wrapping (no em-dash, clearer formatting)
                         interp_para = Paragraph(
-                            f"<b>{level}</b> — {interp}",
+                            f"<b>STATUS: {level}</b><br/>{interp}",
                             styles[alert_style_key]
                         )
                         interp_tbl = Table(
@@ -1606,13 +1608,13 @@ class PDFReportGenerator:
                             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
                             ("LEFTPADDING",   (0, 0), (-1, -1), 0),
                         ]))
-                        story.append(KeepTogether([
-                            Spacer(1, 0.25 * cm),
-                            Paragraph(delta_header, styles["section_head"]),
-                            HRFlowable(width="100%", thickness=1,
-                                       color=alert_border, spaceAfter=4),
-                            delta_layout,
-                        ]))
+                        # KeepTogether removed - was causing content to be pushed to next page
+                        # if it didn't fit, leaving blank pages
+                        story.append(Spacer(1, 0.25 * cm))
+                        story.append(Paragraph(delta_header, styles["section_head"]))
+                        story.append(HRFlowable(width="100%", thickness=1,
+                                       color=alert_border, spaceAfter=4))
+                        story.append(delta_layout)
 
                 story.append(HRFlowable(width="100%", thickness=0.5,
                                         color=GRAY_MID, spaceBefore=8, spaceAfter=2))
@@ -1812,14 +1814,14 @@ class PDFReportGenerator:
         ax1.spines["top"].set_visible(False)
         ax2.spines["top"].set_visible(False)
 
-        # Combined legend (both axes) — positioned at bottom right
+        # Combined legend (both axes) — positioned below plot for cleaner look
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labels1 + labels2,
-                   fontsize=8, loc="lower right", framealpha=0.95,
-                   fancybox=True, edgecolor="#cfd8dc")
+        legend = ax1.legend(lines1 + lines2, labels1 + labels2,
+                   fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.18),
+                   framealpha=0.95, fancybox=True, edgecolor="#cfd8dc", ncol=2)
 
-        fig.tight_layout(pad=0.6)
+        fig.tight_layout(pad=0.4)
 
         buf = io.BytesIO()
         fig.savefig(buf, format="PNG", bbox_inches="tight", dpi=100)
