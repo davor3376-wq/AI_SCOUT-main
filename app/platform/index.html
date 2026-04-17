@@ -525,13 +525,22 @@
         .leaflet-bar a,
         .leaflet-bar a:hover {
             background-color: var(--card) !important;
-            border-bottom-color: var(--border) !important;
+            border: 1px solid var(--border) !important;
+            border-bottom: 1px solid var(--border) !important;
             color: var(--text) !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
         }
         .leaflet-bar a:hover { background-color: var(--panel) !important; }
         .leaflet-bar a.leaflet-disabled {
             background-color: var(--bg) !important;
             color: var(--dim) !important;
+            border: 1px solid var(--border-muted, var(--border)) !important;
+        }
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+            font-size: 18px !important;
+            font-weight: bold !important;
+            line-height: 26px !important;
+            text-align: center !important;
         }
         .leaflet-draw-toolbar a {
             background-image: url('/vendor/images/spritesheet.png');
@@ -1015,8 +1024,10 @@ function startPolling(jobId){
 // Status rendering
 function renderStatus(job){
     currentJobData=job;
+    // Show CLOUD_PIERCED tag for radar missions instead of generic COMPLETED
+    var displayStatus = (job.tag === 'CLOUD_PIERCED') ? 'CLOUD_PIERCED' : (job.status || 'READY');
     document.getElementById('sdot').className='sdot sdot-'+(job.status||'ready').toLowerCase();
-    document.getElementById('status-label').textContent=job.status||'READY';
+    document.getElementById('status-label').textContent=displayStatus;
     document.getElementById('job-card-wrap').innerHTML=
         '<div class="job-card">'+
         '<div class="job-card-id"><span>'+job.id+'</span>'+
