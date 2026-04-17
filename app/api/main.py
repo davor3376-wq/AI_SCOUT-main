@@ -163,15 +163,15 @@ async def security_headers(request: Request, call_next):
 # ---------------------------------------------------------------------------
 # Routers (versioned under /v1)
 # ---------------------------------------------------------------------------
-app.include_router(auth_router, prefix="/v1")
+app.include_router(auth_router)
 if BILLING_MODE != "disabled":
-    app.include_router(billing_router, prefix="/v1")
+    app.include_router(billing_router)
 
 
 # ---------------------------------------------------------------------------
 # Versioned API sub-router — all non-health endpoints live under /v1
 # ---------------------------------------------------------------------------
-v1_router = APIRouter(prefix="/v1")
+v1_router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
@@ -816,8 +816,9 @@ async def emergency_wipe(
     }
 
 
-# Register the versioned router (must come before the SPA wildcard mount)
-app.include_router(v1_router)
+# Register API router (must come before the SPA wildcard mount)
+app.include_router(v1_router, prefix="/v1")  # Also mount at /v1 for compatibility
+app.include_router(v1_router)  # Mount at root for frontend compatibility
 
 # Must be last — catches all unmatched paths for the SPA
 _platform_dir = os.path.abspath(
