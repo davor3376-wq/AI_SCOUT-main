@@ -281,6 +281,15 @@ async def launch_mission(
     auth_obj = SentinelHubAuth()
     catalog = SentinelHubCatalog(config=auth_obj.config)
 
+    # Validate user's region restriction (admins bypass this check)
+    user_region = current_user.get("region")
+    user_role = current_user.get("role")
+    if user_region and user_role in ("analyst", "viewer"):
+        from app.core.regions import validate_geometry_in_region  # noqa: PLC0415
+        is_valid, error_msg = validate_geometry_in_region(body.geometry, user_region)
+        if not is_valid:
+            raise HTTPException(status_code=403, detail=error_msg)
+
     try:
         geom_type = body.geometry.get("type")
         if geom_type == "Point":

@@ -101,6 +101,7 @@ _AUTH_SCHEMA = """
         email       TEXT UNIQUE,
         hashed_pw   TEXT NOT NULL,
         role        TEXT NOT NULL DEFAULT 'analyst',
+        region      TEXT,  -- Assigned region for NGOs (e.g., 'AT-3' for Niederösterreich)
         api_key     TEXT UNIQUE NOT NULL,
         created_at  TEXT NOT NULL,
         is_active   INTEGER NOT NULL DEFAULT 1,
@@ -111,6 +112,8 @@ _AUTH_SCHEMA = """
         ON users(username);
     CREATE INDEX IF NOT EXISTS idx_users_api_key
         ON users(api_key);
+    CREATE INDEX IF NOT EXISTS idx_users_region
+        ON users(region);
 """
 
 
@@ -192,7 +195,7 @@ class UserManager:
     def list_users(self) -> list:
         with get_connection(self.db_path) as conn:
             rows = conn.execute(
-                "SELECT id, username, email, role, created_at, is_active FROM users"
+                "SELECT id, username, email, role, region, created_at, is_active FROM users"
             ).fetchall()
         return [dict(r) for r in rows]
 
@@ -204,6 +207,7 @@ class UserManager:
         password: str,
         role: str = "analyst",
         email: Optional[str] = None,
+        region: Optional[str] = None,
     ) -> Dict[str, Any]:
         if role not in ROLES:
             raise ValueError(f"Invalid role '{role}'. Must be one of {ROLES}.")
@@ -212,13 +216,18 @@ class UserManager:
         hashed = _hash_password(password)
         api_key = f"sk-{secrets.token_urlsafe(32)}"
         now = datetime.now(timezone.utc).isoformat()
+        
+        # Only analyst and viewer roles require a region; admin can access all regions
+        if region and role == "admin":
+            logger.warning(f"Admin user '{username}' was assigned region '{region}' — admins can access all regions")
+        
         with get_connection(self.db_path) as conn:
             conn.execute(
-                "INSERT INTO users (id, username, email, hashed_pw, role, api_key, created_at) "
-                "VALUES (?,?,?,?,?,?,?)",
-                (user_id, username, email, hashed, role, api_key, now),
+                "INSERT INTO users (id, username, email, hashed_pw, role, region, api_key, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (user_id, username, email, hashed, role, region, api_key, now),
             )
-        logger.info(f"Created user '{username}' with role '{role}'")
+        logger.info(f"Created user '{username}' with role '{role}' and region '{region}'")
         return self.get_by_username(username)  # type: ignore[return-value]
 
     def authenticate(self, username: str, password: str) -> Optional[Dict[str, Any]]:

@@ -100,6 +100,66 @@
             margin-top: 14px; text-align: center;
         }
 
+        /* ─── Region selector overlay ──────────────── */
+        #region-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.92); z-index: 9998;
+            align-items: center; justify-content: center; backdrop-filter: blur(8px);
+        }
+        #region-overlay.visible { display: flex; }
+        #region-box {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 16px; width: 480px; max-height: 80vh;
+            padding: 40px; box-shadow: 0 0 80px rgba(56,189,248,0.15), 0 32px 64px rgba(0,0,0,0.7);
+            overflow-y: auto;
+        }
+        #region-box h2 {
+            font-family: var(--mono); font-size: 20px; font-weight: 700;
+            letter-spacing: 2px; color: var(--accent); margin-bottom: 12px;
+            text-align: center;
+        }
+        #region-box p {
+            font-size: 14px; color: var(--dim); text-align: center; margin-bottom: 24px;
+        }
+        .region-item {
+            display: flex; align-items: center; gap: 16px;
+            padding: 16px; border: 1px solid var(--border);
+            border-radius: 12px; margin-bottom: 12px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .region-item:hover {
+            border-color: var(--accent); background: rgba(56,189,248,0.08);
+        }
+        .region-item.selected {
+            border-color: var(--accent); background: rgba(56,189,248,0.15);
+            box-shadow: 0 0 20px rgba(56,189,248,0.2);
+        }
+        .region-color {
+            width: 24px; height: 24px; border-radius: 6px;
+            background: var(--accent); flex-shrink: 0;
+        }
+        .region-info { flex: 1; }
+        .region-name { font-weight: 600; font-size: 15px; color: var(--white); }
+        .region-country { font-size: 12px; color: var(--dim); margin-top: 2px; }
+        .btn-region {
+            width: 100%; padding: 14px; background: var(--accent); color: #000;
+            border: none; border-radius: 10px; font-size: 15px; font-weight: 800;
+            cursor: pointer; margin-top: 20px;
+            transition: opacity 0.2s;
+        }
+        .btn-region:hover { opacity: 0.9; }
+        .btn-region:disabled {
+            background: var(--border); color: var(--dim); cursor: not-allowed;
+        }
+        .region-preview-map {
+            width: 100%; height: 180px; border-radius: 12px;
+            background: var(--card); border: 1px solid var(--border);
+            margin-bottom: 20px; position: relative; overflow: hidden;
+        }
+        .region-cities {
+            font-size: 12px; color: var(--dim); margin-top: 8px;
+        }
+
         /* ─── Tutorial overlay ─────────────────────── */
         #tutorial-overlay {
             display: none; position: fixed; inset: 0;
@@ -604,6 +664,16 @@
     </div>
 </div>
 
+<!-- Region selector overlay -->
+<div id="region-overlay">
+    <div id="region-box">
+        <h2>SELECT YOUR REGION</h2>
+        <p>Choose the region you are authorized to monitor. This defines your operational area.</p>
+        <div id="region-list"></div>
+        <button class="btn-region" id="btn-confirm-region" onclick="confirmRegion()" disabled>CONFIRM REGION</button>
+    </div>
+</div>
+
 <!-- Tutorial overlay -->
 <div id="tutorial-overlay">
     <div id="tutorial-box">
@@ -880,10 +950,12 @@ function tickClock(){var s=new Date().toISOString();document.getElementById('clo
 tickClock();setInterval(tickClock,1000);
 
 // Auth
-var AUTH_KEY='scout_api_key',AUTH_TOKEN='scout_jwt';
+var AUTH_KEY='scout_api_key',AUTH_TOKEN='scout_jwt',USER_REGION='scout_region';
 function getAuthHeader(){var j=sessionStorage.getItem(AUTH_TOKEN);if(j)return{'Authorization':'Bearer '+j};var k=localStorage.getItem(AUTH_KEY);if(k)return{'X-API-Key':k};return{};}
 function isAuthed(){return!!(sessionStorage.getItem(AUTH_TOKEN)||localStorage.getItem(AUTH_KEY));}
-function logout(){sessionStorage.removeItem(AUTH_TOKEN);localStorage.removeItem(AUTH_KEY);document.getElementById('user-label').textContent='NOT AUTHENTICATED';clearCredits();showAuth();}
+function getUserRegion(){return sessionStorage.getItem(USER_REGION)||_userRegion;}
+function saveUserRegion(region){sessionStorage.setItem(USER_REGION,region);_userRegion=region;}
+function logout(){sessionStorage.removeItem(AUTH_TOKEN);sessionStorage.removeItem(USER_REGION);localStorage.removeItem(AUTH_KEY);_userRegion=null;_userRole=null;clearRegionDisplay();document.getElementById('user-label').textContent='NOT AUTHENTICATED';clearCredits();showAuth();}
 async function loadCredits(){
     try{
         var r=await apiFetch('/auth/credits');
@@ -915,6 +987,12 @@ function showTab(tab){
     document.querySelectorAll('#auth-tabs button').forEach(function(b,i){b.classList.toggle('active',(i===0)===(tab==='login'));});
     document.getElementById('auth-error').textContent='';
 }
+// Region handling
+var _regionsData=[];
+var _selectedRegion=null;
+var _userRegion=null;
+var _userRole=null;
+
 async function doLogin(){
     var user=document.getElementById('auth-username').value.trim();
     var pass=document.getElementById('auth-password').value;
@@ -926,9 +1004,129 @@ async function doLogin(){
         var data=await res.json();
         if(!res.ok){err.textContent=data.detail||'Login failed.';return;}
         sessionStorage.setItem(AUTH_TOKEN,data.access_token);
+        _userRole=data.role;
+        _userRegion=data.region;
         document.getElementById('user-label').textContent=user.toUpperCase()+' · '+(data.role||'').toUpperCase();
-        hideAuth();loadHistory();loadCredits();maybeShowTutorial();
+        hideAuth();
+        
+        // For analyst/viewer roles with no region assigned, show region picker
+        if(data.role!=='admin'&&!data.region){
+            await showRegionPicker();
+        }else if(data.region){
+            // User has a region - zoom to it and show cities
+            await zoomToRegion(data.region);
+        }
+        
+        loadHistory();loadCredits();maybeShowTutorial();
     }catch(e){err.textContent='Network error.';}
+}
+
+async function showRegionPicker(){
+    try{
+        var r=await apiFetch('/auth/regions');
+        var data=await r.json();
+        _regionsData=data.regions||[];
+        renderRegionList();
+        document.getElementById('region-overlay').classList.add('visible');
+    }catch(e){console.error('Failed to load regions',e);}
+}
+
+function renderRegionList(){
+    var list=document.getElementById('region-list');
+    list.innerHTML='';
+    _regionsData.forEach(function(r){
+        var item=document.createElement('div');
+        item.className='region-item';
+        item.dataset.id=r.id;
+        item.onclick=function(){selectRegion(r.id);};
+        var cities=r.cities.map(function(c){return c.name;}).slice(0,3).join(', ');
+        item.innerHTML=
+            '<div class="region-color" style="background:#0ea5e9"></div>'+
+            '<div class="region-info">'+
+                '<div class="region-name">'+r.name+'</div>'+
+                '<div class="region-country">'+r.country+'</div>'+
+                '<div class="region-cities">Cities: '+cities+'</div>'+
+            '</div>';
+        list.appendChild(item);
+    });
+}
+
+function selectRegion(regionId){
+    _selectedRegion=regionId;
+    document.querySelectorAll('.region-item').forEach(function(el){
+        el.classList.toggle('selected',el.dataset.id===regionId);
+    });
+    document.getElementById('btn-confirm-region').disabled=false;
+}
+
+async function confirmRegion(){
+    if(!_selectedRegion)return;
+    _userRegion=_selectedRegion;
+    document.getElementById('region-overlay').classList.remove('visible');
+    await zoomToRegion(_selectedRegion);
+}
+
+function hideRegionPicker(){document.getElementById('region-overlay').classList.remove('visible');}
+
+async function zoomToRegion(regionId){
+    var region=_regionsData.find(function(r){return r.id===regionId;});
+    if(!region){
+        // Try to fetch regions if not loaded
+        try{
+            var r=await apiFetch('/auth/regions');
+            var data=await r.json();
+            _regionsData=data.regions||[];
+            region=_regionsData.find(function(r){return r.id===regionId;});
+        }catch(e){console.error('Failed to load regions for zoom',e);return;}
+    }
+    if(region&&region.bbox){
+        var bbox=region.bbox;  // [min_lon, min_lat, max_lon, max_lat]
+        map.fitBounds([[bbox[1],bbox[0]],[bbox[3],bbox[2]]]);
+        // Add city markers
+        addCityMarkers(region.cities);
+        // Show region info
+        showRegionInfo(region);
+    }
+}
+
+var _cityMarkers=[];
+function addCityMarkers(cities){
+    // Clear existing city markers
+    _cityMarkers.forEach(function(m){map.removeLayer(m);});
+    _cityMarkers=[];
+    if(!cities)return;
+    cities.forEach(function(c){
+        var marker=L.circleMarker([c.lat,c.lon],{
+            radius:6,
+            fillColor:'#0ea5e9',
+            color:'#fff',
+            weight:2,
+            opacity:1,
+            fillOpacity:0.9
+        }).addTo(map);
+        marker.bindPopup('<b>'+c.name+'</b>');
+        _cityMarkers.push(marker);
+    });
+}
+
+function showRegionInfo(region){
+    // Add region boundary rectangle
+    if(window._regionRect)map.removeLayer(window._regionRect);
+    var bbox=region.bbox;
+    window._regionRect=L.rectangle([[bbox[1],bbox[0]],[bbox[3],bbox[2]]],{
+        color:'#0ea5e9',
+        weight:2,
+        fillColor:'#0ea5e9',
+        fillOpacity:0.05,
+        dashArray:'5,5'
+    }).addTo(map);
+    window._regionRect.bindTooltip('Your operational area: '+region.name,{permanent:true,direction:'top',offset:[0,-20]});
+}
+
+function clearRegionDisplay(){
+    if(window._regionRect){map.removeLayer(window._regionRect);window._regionRect=null;}
+    _cityMarkers.forEach(function(m){map.removeLayer(m);});
+    _cityMarkers=[];
 }
 function saveApiKey(){
     var key=document.getElementById('auth-apikey').value.trim();
@@ -978,11 +1176,42 @@ map.addControl(new L.Control.Draw({
     edit:{featureGroup:drawnItems}
 }));
 map.on(L.Draw.Event.CREATED,function(e){
+    // Check if drawn geometry is within user's region
+    var regionId=getUserRegion();
+    if(regionId&&_userRole!=='admin'){
+        var geometry=e.layer.toGeoJSON().geometry;
+        if(!isGeometryInRegion(geometry,regionId)){
+            alert('Your Area of Interest must be within your assigned region. Please draw inside your operational area.');
+            return;  // Don't add the layer - it's outside the region
+        }
+    }
     drawnItems.clearLayers();
     if(e.layer.setStyle)e.layer.setStyle(_aoiStyle);
     drawnItems.addLayer(e.layer);
     updateAOI(e.layer);
 });
+
+function isGeometryInRegion(geometry,regionId){
+    var region=_regionsData.find(function(r){return r.id===regionId;});
+    if(!region||!region.bbox)return true;  // If no region data, allow (fail open for dev)
+    var bbox=region.bbox;  // [min_lon, min_lat, max_lon, max_lat]
+    var coords=geometry.coordinates;
+    if(geometry.type==='Point'){
+        var lon=coords[0],lat=coords[1];
+        return lon>=bbox[0]&&lon<=bbox[2]&&lat>=bbox[1]&&lat<=bbox[3];
+    }else if(geometry.type==='Polygon'){
+        // Check all points of the polygon are within bbox
+        var polyCoords=coords[0];  // Outer ring
+        for(var i=0;i<polyCoords.length;i++){
+            var pt=polyCoords[i];
+            if(pt[0]<bbox[0]||pt[0]>bbox[2]||pt[1]<bbox[1]||pt[1]>bbox[3]){
+                return false;
+            }
+        }
+        return true;
+    }
+    return true;
+}
 map.on(L.Draw.Event.DELETED,function(){updateAOI(null);});
 function updateAOI(layer){
     var dot=document.getElementById('aoi-dot'),txt=document.getElementById('aoi-text');

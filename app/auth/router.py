@@ -46,6 +46,7 @@ class UserCreate(BaseModel):
     password: str
     role: str = "analyst"
     email: Optional[str] = None
+    region: Optional[str] = None  # Region ID (e.g., 'AT-3' for Niederösterreich)
 
 
 class TokenResponse(BaseModel):
@@ -53,6 +54,7 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     role: str
+    region: Optional[str] = None  # User's assigned region (if any)
     mfa_required: bool = False
 
 
@@ -131,6 +133,7 @@ async def login(
         "refresh_token": refresh,
         "token_type": "bearer",
         "role": user["role"],
+        "region": user.get("region"),
         "mfa_required": bool(user.get("mfa_enabled")),
     }
 
@@ -138,6 +141,29 @@ async def login(
 @router.get("/me")
 async def me(current_user: dict = Depends(get_current_user)):
     return {k: v for k, v in current_user.items() if k not in ("hashed_pw", "api_key")}
+
+
+@router.get("/regions")
+async def list_regions(current_user: dict = Depends(get_current_user)):
+    """
+    Return all available regions for selection.
+    Used during NGO registration to let users pick their region.
+    """
+    from app.core.regions import get_all_regions
+    regions = get_all_regions()
+    return {
+        "regions": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "country": r.country,
+                "country_code": r.country_code,
+                "bbox": r.bbox,
+                "cities": r.cities,
+            }
+            for r in regions
+        ]
+    }
 
 
 @router.get("/credits")
@@ -204,13 +230,14 @@ async def create_user(
 ):
     um = _um()
     try:
-        user = um.create_user(body.username, body.password, body.role, body.email)
+        user = um.create_user(body.username, body.password, body.role, body.email, body.region)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {
         "id": user["id"],
         "username": user["username"],
         "role": user["role"],
+        "region": user.get("region"),
         "api_key": user["api_key"],
     }
 
