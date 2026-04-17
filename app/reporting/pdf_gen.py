@@ -1568,23 +1568,32 @@ class PDFReportGenerator:
                             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, colors.HexColor("#f5f5f5")]),
                         ]))
 
-                        _delta_tbl_w   = 8.8 * cm
-                        _delta_spacer  = 0.5 * cm
-                        _interp_col_w  = 16.2 * cm - _delta_tbl_w - _delta_spacer  # 6.9 cm
+                        # Improved delta layout: better proportions and cleaner spacing
+                        _delta_tbl_w   = 8.2 * cm
+                        _delta_spacer  = 0.4 * cm
+                        _interp_col_w  = 16.2 * cm - _delta_tbl_w - _delta_spacer  # ~7.6 cm
+
+                        # Interpretation box with better text wrapping
+                        interp_para = Paragraph(
+                            f"<b>{level}</b> — {interp}",
+                            styles[alert_style_key]
+                        )
                         interp_tbl = Table(
-                            [[Paragraph(interp, styles[alert_style_key])]],
+                            [[interp_para]],
                             colWidths=[_interp_col_w],
                         )
                         interp_tbl.setStyle(TableStyle([
                             ("BACKGROUND",   (0, 0), (-1, -1), alert_bg),
-                            ("BOX",          (0, 0), (-1, -1), 0.8, alert_border),
-                            ("TOPPADDING",   (0, 0), (-1, -1), 6),
-                            ("BOTTOMPADDING",(0, 0), (-1, -1), 6),
+                            ("BOX",          (0, 0), (-1, -1), 1.0, alert_border),
+                            ("TOPPADDING",   (0, 0), (-1, -1), 8),
+                            ("BOTTOMPADDING",(0, 0), (-1, -1), 8),
                             ("LEFTPADDING",  (0, 0), (-1, -1), 10),
+                            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                            ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
                         ]))
 
                         delta_layout = Table(
-                            [[delta_tbl, Spacer(_delta_spacer, 1), interp_tbl]],
+                            [[delta_tbl, Spacer(1, 1), interp_tbl]],
                             colWidths=[_delta_tbl_w, _delta_spacer, _interp_col_w],
                         )
                         delta_layout.setStyle(TableStyle([
@@ -1756,52 +1765,57 @@ class PDFReportGenerator:
         if len(dates) < 2:
             return None
 
-        fig, ax1 = plt.subplots(figsize=(6.5, 2.8), dpi=100)
+        fig, ax1 = plt.subplots(figsize=(6.8, 3.0), dpi=120)
 
         # ── Left axis: linear Gamma0 ──────────────────────────────────────────
         ax1.plot(dates, means,
-                 color="#1a3a5c", linewidth=1.8, marker="o",
-                 markersize=5, markerfacecolor="#2e7d32",
-                 markeredgecolor="#1a3a5c", zorder=3,
-                 label="Mean VV Gamma$^0$ (linear)")
-        ax1.fill_between(dates, means, alpha=0.08, color="#1a3a5c")
-        ax1.set_ylabel("Backscatter Intensity\n(linear Gamma$^0$)",
-                       fontsize=8, color="#1a3a5c")
-        ax1.tick_params(axis="y", labelcolor="#1a3a5c", labelsize=7)
-        ax1.tick_params(axis="x", labelsize=7)
+                 color="#1a3a5c", linewidth=2.0, marker="o",
+                 markersize=6, markerfacecolor="#2e7d32",
+                 markeredgecolor="#1a3a5c", markeredgewidth=1.2, zorder=3,
+                 label="Mean VV Gamma⁰ (linear)")
+        ax1.fill_between(dates, means, alpha=0.12, color="#1a3a5c")
+        ax1.set_ylabel("Backscatter (linear Gamma⁰)", fontsize=9, color="#1a3a5c", fontweight="bold")
+        ax1.tick_params(axis="y", labelcolor="#1a3a5c", labelsize=8)
+        ax1.tick_params(axis="x", labelsize=8)
         ax1.set_ylim(bottom=0)
 
         # ── Right axis: dB equivalent ─────────────────────────────────────────
         ax2 = ax1.twinx()
         means_db = [10.0 * math.log10(max(m, 1e-10)) for m in means]
         ax2.plot(dates, means_db,
-                 color="#e65100", linewidth=1.0, linestyle="--",
-                 alpha=0.7, label="VV (dB)")
-        ax2.set_ylabel("Backscatter (dB)", fontsize=8, color="#e65100")
-        ax2.tick_params(axis="y", labelcolor="#e65100", labelsize=7)
+                 color="#e65100", linewidth=1.5, linestyle="--",
+                 alpha=0.85, label="VV (dB)")
+        ax2.set_ylabel("Backscatter (dB)", fontsize=9, color="#e65100", fontweight="bold")
+        ax2.tick_params(axis="y", labelcolor="#e65100", labelsize=8)
 
         # ── X-axis: acquisition date formatting ───────────────────────────────
         ax1.xaxis.set_major_formatter(mpl_dates.DateFormatter("%d %b %Y"))
-        ax1.xaxis.set_major_locator(mpl_dates.AutoDateLocator())
-        fig.autofmt_xdate(rotation=30, ha="right")
-        ax1.set_xlabel("Acquisition Date", fontsize=8)
+        ax1.xaxis.set_major_locator(mpl_dates.AutoDateLocator(minticks=4, maxticks=8))
+        for label in ax1.get_xticklabels():
+            label.set_rotation(30)
+            label.set_ha("right")
+            label.set_fontsize(8)
+        ax1.set_xlabel("Acquisition Date", fontsize=9, fontweight="bold")
 
         # ── Title & grid ──────────────────────────────────────────────────────
         ax1.set_title(
-            "Mean VV Backscatter Intensity \u2014 Temporal Trend",
-            fontsize=9, color="#1a3a5c", fontweight="bold", pad=6,
+            "Mean VV Backscatter Intensity — Temporal Trend",
+            fontsize=11, color="#1a3a5c", fontweight="bold", pad=10,
         )
-        ax1.grid(True, linestyle="--", alpha=0.35, linewidth=0.5, zorder=0)
-        ax1.set_facecolor("#f9f9f9")
+        ax1.grid(True, linestyle="-", alpha=0.25, linewidth=0.6, zorder=0, color="#9e9e9e")
+        ax1.set_facecolor("#fafbfc")
         fig.patch.set_facecolor("white")
+        ax1.spines["top"].set_visible(False)
+        ax2.spines["top"].set_visible(False)
 
-        # Combined legend (both axes)
+        # Combined legend (both axes) — positioned at bottom right
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(lines1 + lines2, labels1 + labels2,
-                   fontsize=7, loc="best", framealpha=0.8)
+                   fontsize=8, loc="lower right", framealpha=0.95,
+                   fancybox=True, edgecolor="#cfd8dc")
 
-        fig.tight_layout(pad=0.8)
+        fig.tight_layout(pad=0.6)
 
         buf = io.BytesIO()
         fig.savefig(buf, format="PNG", bbox_inches="tight", dpi=100)
