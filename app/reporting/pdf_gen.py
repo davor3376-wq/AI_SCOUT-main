@@ -10,6 +10,10 @@ import glob
 from datetime import datetime, timezone
 from typing import Optional
 
+# Force non-interactive backend BEFORE any matplotlib imports (prevents tkinter errors in threads)
+import matplotlib
+matplotlib.use("Agg", force=True)
+
 import matplotlib.cm as mpl_cm
 import matplotlib.colors as mpl_colors
 import matplotlib.dates as mpl_dates
