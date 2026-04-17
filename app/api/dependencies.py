@@ -89,6 +89,13 @@ async def get_current_user(
             _dev_mode_warned = True
         return _DEV_USER
 
+    # Debug logging for auth failures
+    logger.warning(
+        f"Auth failed: token={'present' if token else 'missing'}, "
+        f"api_key={'present' if x_api_key else 'missing'}, "
+        f"legacy_key_set={'yes' if LEGACY_API_KEY else 'no'}, "
+        f"secret_key_set={'yes' if _secret_key_set() else 'no'}"
+    )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
