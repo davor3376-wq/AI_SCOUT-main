@@ -67,13 +67,20 @@ async def get_current_user(
         user = um.get_by_api_key(x_api_key)
         if user:
             return user
+        # API key was provided but is invalid - reject even in dev mode
+        logger.warning(f"Invalid API key attempt: {x_api_key[:12]}...")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     # 3. Legacy single shared API key (backward compat — admin level)
     if LEGACY_API_KEY and x_api_key == LEGACY_API_KEY:
         return {**_DEV_USER, "username": "legacy-key", "api_key": LEGACY_API_KEY}
 
-    # 4. Dev-open mode — no secret key configured
-    if not _secret_key_set():
+    # 4. Dev-open mode — no secret key configured AND no credentials were provided
+    if not _secret_key_set() and not x_api_key:
         if ENVIRONMENT == "production":
             # Never silently admit requests in production without a secret key.
             raise HTTPException(
