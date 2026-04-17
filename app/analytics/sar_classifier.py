@@ -503,43 +503,40 @@ def generate_backscatter_trend_report(trend: List[Dict[str, Any]]) -> str:
 # ── Plain-language class justifications (Explainability Layer) ─────────────
 CLASS_PLAIN_LANGUAGE: Dict[int, str] = {
     WATER: (
-        "Near-zero radar return (VV\u202f<\u202f0.01). Calm water and smooth surfaces act as "
-        "specular mirrors, deflecting the radar pulse away from the sensor. "
-        "Confirmed by cross-polarisation VH\u202f<\u202f0.005 where available."
+        "Calm water and smooth surfaces exhibit very low radar return. Water acts as a "
+        "specular mirror, reflecting the radar signal away from the sensor. This class "
+        "indicates lakes, rivers, or smooth ground surfaces with minimal vegetation."
     ),
     BARE_SOIL: (
-        "Low diffuse backscatter (0.01\u202f\u2264\u202fVV\u202f<\u202f0.05). Surface generates no "
-        "significant volume- or double-bounce return, consistent with exposed soil, "
-        "gravel, rock, or very sparse ground cover."
+        "Exposed soil, gravel, or sparse ground cover with low radar reflectance. "
+        "Agricultural fallow fields, construction sites, or recently cleared areas "
+        "typically appear in this category. Vegetation cover is minimal or absent."
     ),
     VEGETATION: (
-        "Moderate volume-scattering return (0.05\u202f\u2264\u202fVV\u202f<\u202f0.15), OR high "
-        "backscatter with VH/VV\u202f\u2265\u202f0.30 confirming canopy volume dominance. The radar "
-        "signal is scattered by leaf and branch structure across multiple canopy depths. "
-        "Optionally confirmed by NDVI\u202f>\u202f0.50 from co-registered Sentinel-2 optical data."
+        "Healthy vegetation including crops, grasslands, and forest canopy. The radar "
+        "signal penetrates and scatters within the vegetation structure, producing a "
+        "characteristic signature consistent with photosynthetically active plants. "
+        "May be confirmed by optical satellite data where cloud-free conditions exist."
     ),
     URBAN: (
-        "Persistent high-intensity double-bounce return (VV\u202f\u2265\u202f0.15, VH/VV\u202f<\u202f0.15). "
-        "Building fa\u00e7ades and road surfaces form a corner-reflector geometry between "
-        "vertical structures and the ground plane, producing a characteristic radar "
-        "signature that persists across \u2265\u202f3 consecutive acquisitions (\u223c18 days at "
-        "6-day revisit)."
+        "Built-up areas including residential, commercial, and industrial zones. "
+        "Buildings and infrastructure create distinctive double-bounce radar signatures "
+        "from vertical walls and flat surfaces. Detection requires the signature to "
+        "persist across multiple satellite overpasses (minimum 18 days) to avoid "
+        "false positives from temporary structures or vehicles."
     ),
     ANOMALOUS_VEG_MOISTURE: (
-        "DATA CONFIDENCE FILTER \u2014 NOT a permanent land cover class. A transient "
-        "high-backscatter event was detected within a confirmed vegetation zone "
-        "(NDVI baseline\u202f>\u202f0.60) but did not persist long enough (fewer than 3 "
-        "consecutive acquisitions) to satisfy the Urban persistence criterion. "
-        "Probable causes: canopy moisture loading from precipitation, wind-induced "
-        "branch reorientation, or wet-snow events. No land conversion has been detected."
+        "Temporary change detection within established vegetation areas. This is a "
+        "confidence filter rather than a permanent land cover class. Causes may include "
+        "recent rainfall wetting the canopy, wind changing branch orientation, or "
+        "wet snow accumulation. These effects typically resolve within one to two "
+        "satellite acquisition cycles. No permanent land use change is indicated."
     ),
     WET_FOREST: (
-        "High backscatter with intermediate VH/VV ratio (0.15\u202f\u2264\u202fCR\u202f<\u202f0.30). "
-        "Signal intensity is too strong for dry vegetation but the polarisation ratio "
-        "is too high for a definitive urban double-bounce signature. This pattern is "
-        "consistent with water-loaded canopy or elevated forest-floor moisture. "
-        "This class acts as a false-positive guard, preventing urban misclassification "
-        "during and immediately after precipitation events."
+        "Forest areas showing elevated moisture conditions, often following rainfall "
+        "events or in riparian zones. The radar signature indicates water presence in "
+        "the canopy or on the forest floor. This classification prevents urban "
+        "misidentification of temporarily wet forest areas during or after wet weather."
     ),
 }
 

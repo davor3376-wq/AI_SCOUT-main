@@ -671,10 +671,10 @@ class PDFReportGenerator:
                 chart_img = RLImage(trend_buf, width=16.2 * cm, height=7.0 * cm)
                 story.append(chart_img)
                 story.append(Paragraph(
-                    "Figure 1: Mean VV Backscatter Intensity (linear Gamma<super>0</super>, left axis) "
-                    "and dB equivalent (right axis) over the analysis period. "
-                    "Radiometric variance within threshold. No statistical anomaly detected in signal return. "
-                    "Interpretation requires field validation.",
+                    "Figure 1: Radar reflectance intensity over the monitoring period. "
+                    "The left axis shows linear measurements; the right axis shows decibel (dB) values. "
+                    "Radiometric variance within normal thresholds. No significant anomaly detected. "
+                    "Field validation recommended for operational decisions.",
                     styles["caption"],
                 ))
                 story.append(Spacer(1, 0.5 * cm))
@@ -1500,18 +1500,38 @@ class PDFReportGenerator:
                 ]))
                 story.append(layout)
                 story.append(Spacer(1, 0.1 * cm))
-                story.append(Paragraph(
-                    "<b>Left:</b> VV polarisation (black = low backscatter, white = high).  "
-                    "<b>Right:</b> Land cover classification \u2014 "
-                    "<font name='ZapfDingbats' color='#1e78c8'>n</font> Water (specular near-zero return), "
-                    "<font name='ZapfDingbats' color='#c8aa78'>n</font> Bare Soil (low diffuse return), "
-                    "<font name='ZapfDingbats' color='#228b22'>n</font> Vegetation (volume scatter >= 0.05 or CR >= 0.30), "
-                    "<font name='ZapfDingbats' color='#b43232'>n</font> Urban (persistent double-bounce, VH/VV < 0.15), "
-                    "<font name='ZapfDingbats' color='#ffa500'>n</font> Anomalous Veg/Moisture (data confidence filter), "
-                    "<font name='ZapfDingbats' color='#008080'>n</font> Wet Forest (CR 0.15 - 0.30, dielectric guard). "
-                    "Grey = no data. Full classification rationale in the Certification section.",
-                    styles["caption"],
-                ))
+                # Build caption with inline color swatches instead of ZapfDingbats
+                _swatch_w = 0.35 * cm
+                _swatch_h = 0.25 * cm
+                _swatch_colors = {
+                    "Water": "#1e78c8",
+                    "Bare Soil": "#c8aa78",
+                    "Vegetation": "#228b22",
+                    "Urban": "#b43232",
+                    "Anomalous": "#ffa500",
+                    "Wet Forest": "#008080",
+                }
+                _swatch_descriptions = {
+                    "Water": "calm water (smooth, specular reflection)",
+                    "Bare Soil": "exposed soil or sparse ground cover",
+                    "Vegetation": "healthy vegetation canopy",
+                    "Urban": "built-up areas and infrastructure",
+                    "Anomalous": "temporary moisture event in vegetation",
+                    "Wet Forest": "forest canopy with elevated moisture",
+                }
+
+                caption_parts = [
+                    "<b>Left:</b> VV polarisation (black = low backscatter, white = high).  ",
+                    "<b>Right:</b> Land cover classification: ",
+                ]
+                for name, hex_col in _swatch_colors.items():
+                    desc = _swatch_descriptions[name]
+                    caption_parts.append(
+                        f"<font color='{hex_col}'>\u25a0</font> {name} ({desc}), "
+                    )
+                caption_parts.append("Grey = no data. See Certification section for methodology.")
+
+                story.append(Paragraph("".join(caption_parts), styles["caption"]))
 
                 # ── 6. Inter-scene delta report ───────────────────────────────
                 if idx > 0:
@@ -1664,9 +1684,8 @@ class PDFReportGenerator:
 
         if len(scene_means) < 2:
             text = (
-                "Insufficient acquisitions for temporal variance analysis. "
-                "A minimum of two Radiometric Terrain Corrected (RTC) scenes is required "
-                "to perform inter-scene Backscatter Intensity comparison."
+                "Radar analysis requires at least two satellite acquisitions to detect changes. "
+                "A single scene can only show current conditions, not trends or anomalies over time."
             )
             style_key = "body"
             bg, border = GRAY_BG, GRAY_MID
@@ -1679,12 +1698,10 @@ class PDFReportGenerator:
                 overall_mean = float(np.mean(finite_means))
                 mean_db = 10.0 * math.log10(max(overall_mean, 1e-10))
                 text = (
-                    f"Radiometric variance within threshold "
-                    f"(\u03c3 = {ts_std:.4f} linear Gamma<super>0</super>; threshold: {ANOMALY_THRESHOLD:.2f}). "
-                    f"Mean VV Backscatter Intensity: {overall_mean:.4f} linear Gamma<super>0</super> "
-                    f"({mean_db:.1f} dB) across {len(scene_means)} acquisition(s). "
-                    "No statistically significant anomaly detected in signal return. "
-                    "Interpretation requires field validation."
+                    f"Surface conditions remained stable across {len(scene_means)} satellite passes. "
+                    f"Radar reflectance averaged {overall_mean:.3f} ({mean_db:.1f} dB) with "
+                    f"low variability. No significant surface changes detected. "
+                    "Field verification recommended before making management decisions."
                 )
                 style_key = "good"
                 bg, border = GREEN_LIGHT, GREEN
@@ -1704,15 +1721,12 @@ class PDFReportGenerator:
                 flagged_str = ", ".join(flagged_labels)
 
                 text = (
-                    "Significant Backscatter Deviation detected. "
-                    f"Mean VV Backscatter Intensity exhibits elevated temporal variance "
-                    f"(\u03c3 = {ts_std:.4f} linear Gamma<super>0</super>; "
-                    f"threshold: {ANOMALY_THRESHOLD:.2f}) "
-                    f"across {len(scene_means)} acquisition(s). "
-                    f"Acquisition date(s) flagged for highest Backscatter Intensity "
-                    f"deviation: {flagged_str}. "
-                    "Secondary review recommended. Contextual interpretation "
-                    "requires field verification."
+                    "Significant surface changes detected across the monitoring period. "
+                    f"Radar reflectance showed elevated variability (deviation: {ts_std:.3f}, "
+                    f"exceeding normal threshold of {ANOMALY_THRESHOLD:.2f}). "
+                    f"Unusual readings recorded on: {flagged_str}. "
+                    "Recommend ground inspection of flagged areas. Changes may indicate "
+                    "construction activity, vegetation clearing, flooding, or soil disturbance."
                 )
                 style_key = "alert"
                 bg, border = RED_LIGHT, RED
@@ -1732,17 +1746,15 @@ class PDFReportGenerator:
         story.append(summary_tbl)
         story.append(Spacer(1, 0.3 * cm))
 
-        # ── Layperson glossary — footnote beneath the finding block ───────────
+        # ── Key terms for non-specialist readers ────────────────────────────
         glossary_text = (
-            "<b>Glossary\u202f\u2014</b> "
-            "<i>Radiometric Terrain Corrected (RTC):</i> SAR imagery corrected for "
-            "geometric and radiometric distortions caused by terrain relief, enabling "
-            "reliable land cover comparison across acquisitions. "
-            "<i>Backscatter Intensity (Gamma<super>0</super>):</i> radar energy reflected from "
-            "the Earth\u2019s surface back to the satellite, expressed as a dimensionless "
-            "linear ratio; higher values indicate rougher or denser surfaces (urban, forest). "
-            "<i>VV Polarisation:</i> radar signal transmitted and received in the vertical "
-            "plane, sensitive to soil moisture, open water, and built structures."
+            "<b>Key Terms:</b> "
+            "<i>Radar imagery</i> can see through clouds using microwave signals. "
+            "<i>Surface reflectance</i> measures how much radar energy bounces back — "
+            "rough or dense surfaces (buildings, forests) return more signal than "
+            "smooth surfaces (water, bare soil). "
+            "<i>Vertical polarization</i> refers to the radar signal orientation, "
+            "which helps distinguish between vegetation, water, and built structures."
         )
         story.append(Paragraph(glossary_text, styles["footnote"]))
         story.append(Spacer(1, 0.4 * cm))
@@ -1844,15 +1856,13 @@ class PDFReportGenerator:
                                 color=NAVY, spaceAfter=6))
 
         body_text = (
-            "The table below consolidates mean VV Backscatter Intensity (Gamma<super>0</super> RTC, "
-            "linear scale) for every Sentinel-1 acquisition in this mission. "
-            "<b>Gamma<super>0</super> RTC</b> is radar energy reflected from the Earth\u2019s surface, "
-            "corrected for terrain slope, enabling direct land-use comparison across dates. "
-            "Higher values indicate rougher or denser surfaces (urban areas, dense forest); "
-            "lower values indicate smooth surfaces (standing water, bare soil). "
-            "The <b>Valid px</b> column is compared across dates to verify geometric "
-            "co-registration \u2014 a stable count confirms all scenes share the same "
-            "spatial grid, which is a prerequisite for reliable pixel-level change analysis."
+            "The table below summarizes radar measurements for each satellite acquisition. "
+            "<b>Mean VV</b> shows average surface reflectance on a linear scale; "
+            "<b>VV (dB)</b> converts this to decibels for easier interpretation. "
+            "Higher values indicate rougher surfaces (urban areas, forests); "
+            "lower values indicate smooth surfaces (water, bare soil). "
+            "The <b>Valid px</b> column confirms all images are properly aligned — "
+            "consistent pixel counts across dates verify reliable comparison."
         )
         story.append(Paragraph(body_text, styles["body"]))
         story.append(Spacer(1, 0.3 * cm))
