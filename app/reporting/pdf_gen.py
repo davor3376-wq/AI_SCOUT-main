@@ -2110,28 +2110,8 @@ class PDFReportGenerator:
         story.append(legend_tbl)
         story.append(Spacer(1, 0.5 * cm))
 
-        # ── 2. Technical Limitations & Liability Disclaimer ───────────────
-        story.append(Paragraph("2.  Technical Limitations & Liability Disclaimer",
-                               styles["section_head"]))
-        story.append(HRFlowable(width="100%", thickness=0.8,
-                                color=AMBER, spaceAfter=4))
-        disclaimer_tbl = Table(
-            [[Paragraph(_TECHNICAL_LIMITATIONS, styles["body"])]],
-            colWidths=[16.2 * cm],
-        )
-        disclaimer_tbl.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1, -1), AMBER_LIGHT),
-            ("BOX",           (0, 0), (-1, -1), 1.0, AMBER),
-            ("TOPPADDING",    (0, 0), (-1, -1), 10),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 12),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
-        ]))
-        story.append(disclaimer_tbl)
-        story.append(Spacer(1, 0.5 * cm))
-
-        # ── 3. Copernicus Data Attribution ────────────────────────────────
-        story.append(Paragraph("3.  Data Source Attribution (Copernicus / ESA)",
+        # ── 2. Copernicus Data Attribution ────────────────────────────────
+        story.append(Paragraph("2.  Data Source Attribution (Copernicus / ESA)",
                                styles["section_head"]))
         story.append(HRFlowable(width="100%", thickness=0.8,
                                 color=NAVY_LIGHT, spaceAfter=4))
@@ -2150,8 +2130,8 @@ class PDFReportGenerator:
         story.append(attrib_tbl)
         story.append(Spacer(1, 0.5 * cm))
 
-        # ── 4. Validation Protocol Summary ───────────────────────────────
-        story.append(Paragraph("4.  ISO 19157 Validation Protocol \u2014 50-Point Confusion Matrix Design",
+        # ── 3. Validation Protocol Summary ───────────────────────────────
+        story.append(Paragraph("3.  ISO 19157 Validation Protocol \u2014 50-Point Confusion Matrix Design",
                                styles["section_head"]))
         story.append(HRFlowable(width="100%", thickness=0.8,
                                 color=NAVY_LIGHT, spaceAfter=4))
@@ -2197,23 +2177,45 @@ class PDFReportGenerator:
             story.append(proto_tbl)
             story.append(Spacer(1, 0.2 * cm))
             story.append(Paragraph(
-                "<b>Validation Design Template — Field Survey Required.</b> "
+                "<b>Validation Design Template \u2014 Field Survey Required.</b> "
                 "The table above defines the sampling design; accuracy metrics are computed "
                 "after field data collection is complete. "
                 "Producer\u2019s Accuracy (PA) = correctly classified reference points / "
                 "total reference points per class (omission error = 100 - PA). "
                 "User\u2019s Accuracy (UA) = correctly classified mapped points / "
                 "total mapped points per class (commission error = 100 - UA). "
-                "Overall Accuracy (OA) = diagonal sum / total. "
-                "Kappa Coefficient (\u03ba) computed per Landis &amp; Koch (1977); "
-                "\u03ba &gt; 0.80 required for commercial release.",
+                "Overall Accuracy (OA) = diagonal sum / total reference points. "
+                "Kappa Coefficient = (OA - Pe) / (1 - Pe) where Pe = agreement due to chance. "
+                "Two independent interpreters required; inter-rater Cohen's Kappa \u2265 0.85 "
+                "is required for consensus before confusion matrix completion.",
                 styles["footnote"],
             ))
-        except Exception as _proto_exc:
-            logger.warning(f"Validation protocol render failed: {_proto_exc}")
+        except Exception as e:
+            logger.warning(f"Validation protocol generation failed: {e}")
             story.append(Paragraph(
                 "Validation protocol data unavailable.", styles["body"],
             ))
+
+        story.append(Spacer(1, 0.4 * cm))
+
+        # ── 4. Technical Limitations & Liability Disclaimer (last) ─────────
+        story.append(Paragraph("4.  Technical Limitations & Liability Disclaimer",
+                               styles["section_head"]))
+        story.append(HRFlowable(width="100%", thickness=0.8,
+                                color=AMBER, spaceAfter=4))
+        disclaimer_tbl = Table(
+            [[Paragraph(_TECHNICAL_LIMITATIONS, styles["body"])]],
+            colWidths=[16.2 * cm],
+        )
+        disclaimer_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), AMBER_LIGHT),
+            ("BOX",           (0, 0), (-1, -1), 1.0, AMBER),
+            ("TOPPADDING",    (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ]))
+        story.append(disclaimer_tbl)
 
         return story
 
