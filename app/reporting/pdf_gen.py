@@ -1570,7 +1570,7 @@ class PDFReportGenerator:
                             ["Mean dVV",           f"{delta_stats['mean_delta']:.4f}"],
                             ["Std Dev dVV",        f"{delta_stats['std_delta']:.4f}"],
                             ["Anomaly threshold",  f"{delta_stats['anomaly_threshold']:.4f}  "
-                                                   f"({delta_stats['sigma_threshold']:.0f}sigma "
+                                                   f"({delta_stats['sigma_threshold']:.0f}\u03c3 "
                                                    f"or >={delta_stats['abs_delta_min']:.3f})"],
                             ["Anomalous pixels",   f"{delta_stats['anomaly_pct']:.1f}%"],
                             ["Backscatter decrease", f"{delta_stats['decrease_pct']:.1f}%"],
@@ -1830,7 +1830,7 @@ class PDFReportGenerator:
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         legend = ax1.legend(lines1 + lines2, labels1 + labels2,
-                   fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.18),
+                   fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.22),
                    framealpha=0.95, fancybox=True, edgecolor="#cfd8dc", ncol=2)
 
         fig.tight_layout(pad=0.4)
